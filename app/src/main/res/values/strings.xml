@@ -659,4 +659,5 @@
     <string name="lyrics_source_footer">Source: %1$s · %2$s ›</string>
     <string name="lyrics_source_provider">lyrics provided by %1$s</string>
     <string name="lyrics_source_description">Lyrics source: %1$s, %2$s. Activate to change source.</string>
+    <string name="settings_label_spotify_lyrics_takeover">Open Spicy lyrics from Spotify\'s lyrics</string>
 </resources>

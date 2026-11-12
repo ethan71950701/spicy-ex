@@ -652,4 +652,5 @@
     <string name="settings_option_metaballs">Metaballs</string>
     <string name="settings_option_pulsing_border">脉动边框</string>
     <string name="settings_option_grain_gradient">颗粒渐层</string>
+    <string name="settings_label_spotify_lyrics_takeover">从 Spotify 歌词进入时打开 Spicy 歌词</string>
 </resources>

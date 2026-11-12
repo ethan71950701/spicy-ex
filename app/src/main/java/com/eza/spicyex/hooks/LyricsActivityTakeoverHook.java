@@ -169,6 +169,14 @@ final class LyricsActivityTakeoverHook {
         });
     }
 
+    boolean isSpotifyLyricsTakeoverEnabled(Activity activity) {
+        try {
+            return SpotifyPlusConfig.from(activity).get(Settings.SPOTIFY_LYRICS_TAKEOVER);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     boolean isNativeSpicyEnabled(Activity activity) {
         try {
             return SpotifyPlusConfig.from(activity).get(Settings.NATIVE_SPICY_ENABLED);
@@ -736,9 +744,9 @@ final class LyricsActivityTakeoverHook {
         if (isExplicitLyricsExit(activity)) return false;
         if (nativeLyricsSessionActive || hasNativeSpicyRoot(activity)) return true;
         // Any open of Spotify's lyrics screen (our button, the lyric card, or Spotify's own entry
-        // points) becomes the Spicy screen while the native Spicy switch is on.
+        // points) becomes the Spicy screen while the Spotify-entry switch is on.
         boolean armed = consumeTakeoverArmed();
-        if (!armed && !isNativeSpicyEnabled(activity)) return false;
+        if (!armed && !isSpotifyLyricsTakeoverEnabled(activity)) return false;
         // Promote the one-shot entry signal before waiting for a mount-ready window. This is the
         // durable lifecycle signal carried across rotation and Spotify activity relaunches.
         nativeLyricsSessionActive = true;

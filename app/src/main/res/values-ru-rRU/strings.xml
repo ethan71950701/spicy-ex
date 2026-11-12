@@ -658,4 +658,5 @@
     <string name="lyrics_source_footer">Источник: %1$s · %2$s ›</string>
     <string name="lyrics_source_provider">текст предоставлен: %1$s</string>
     <string name="lyrics_source_description">Источник текста: %1$s, %2$s. Нажмите, чтобы сменить источник.</string>
+    <string name="settings_label_spotify_lyrics_takeover">Открывать текст Spicy из текста Spotify</string>
 </resources>

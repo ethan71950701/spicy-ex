@@ -644,4 +644,5 @@
     <string name="lyrics_source_footer">소스: %1$s · %2$s ›</string>
     <string name="lyrics_source_provider">가사 제공: %1$s</string>
     <string name="lyrics_source_description">가사 소스: %1$s, %2$s. 탭하여 소스를 변경하세요.</string>
+    <string name="settings_label_spotify_lyrics_takeover">Spotify 가사에서 Spicy 가사 열기</string>
 </resources>
