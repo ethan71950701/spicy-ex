@@ -733,30 +733,10 @@ final class LyricsActivityTakeoverHook {
     private boolean isSpotifySettingsScreen(Activity activity) {
         StringBuilder detail = new StringBuilder();
         try {
-            detail.append("supers=");
-            for (Class<?> c = activity.getClass().getSuperclass(); c != null && c != Object.class;
-                    c = c.getSuperclass()) {
-                detail.append(c.getName()).append(' ');
-            }
-            detail.append("fragmentMethods=[");
-            int shown = 0;
-            for (java.lang.reflect.Method m : activity.getClass().getMethods()) {
-                String n = m.getName();
-                if ((n.contains("Fragment") || n.contains("Navigat")) && shown < 10) {
-                    detail.append(n).append(' ');
-                    shown++;
-                }
-            }
-            detail.append("] ");
+            Object fm = activity.getClass().getMethod("getSupportFragmentManager").invoke(activity);
+            appendFragments(fm, detail);
         } catch (Throwable t) {
-            detail.append("reflect=").append(t.getClass().getSimpleName()).append(' ');
-        }
-        try {
-            Object fm = activity.getFragmentManager();
-            detail.append("fm=").append(fm == null ? "null" : fm.getClass().getName()).append(' ');
-            if (fm != null) appendFragments(fm, detail);
-        } catch (Throwable t) {
-            detail.append("fm-err=").append(t.getClass().getSimpleName());
+            detail.append("support-fm=").append(t.getClass().getSimpleName());
         }
         lastSettingsProbe = detail.toString();
         return false;
