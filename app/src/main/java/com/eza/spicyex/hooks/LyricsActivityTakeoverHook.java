@@ -104,6 +104,7 @@ final class LyricsActivityTakeoverHook {
                 // else: Spicy disabled - keep Spotify's own lyrics screen.
             } else {
                 scheduleExtraLyricsButtonInjection(activity);
+                SettingsFragmentTrace.installOnce(activity);
             }
         });
 
