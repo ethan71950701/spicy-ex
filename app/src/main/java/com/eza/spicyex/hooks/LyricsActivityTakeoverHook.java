@@ -58,7 +58,7 @@ final class LyricsActivityTakeoverHook {
     private static final WeakHashMap<Activity, Long> BACK_PRESS_UNTIL_MS = new WeakHashMap<>();
     private static final long BACK_PRESS_EXIT_WINDOW_MS = 2500L;
     // Armed by our own entry button right before launching the lyrics activity; consumed when we mount.
-    // Spotify's native lyric card launches the same activity without arming this, so it stays native.
+    // Spotify's own lyric entry launches the same activity without arming this; it still takes over when Spicy is on.
     private static volatile boolean takeoverArmed = false;
     // True while our native lyrics screen is the active session. Survives activity recreation
     // (rotation/config change) so we re-mount instead of falling back to Spotify's native screen;
@@ -87,7 +87,7 @@ final class LyricsActivityTakeoverHook {
                     XpLog.log(NativeSpicyLyricsHook.TAG
                             + " lyrics activity onCreate (takeover) " + activity.getClass().getName());
                 }
-                // else: opened via Spotify's native lyric card - leave Spotify's screen untouched.
+                // else: Spicy disabled - leave Spotify's own lyrics screen untouched.
             } else {
                 scheduleExtraLyricsButtonInjection(activity);
             }
@@ -101,7 +101,7 @@ final class LyricsActivityTakeoverHook {
                     ensureSystemBackCallback(activity);
                     ensureLegacyBackCoverage(activity);
                 }
-                // else: native lyric card opened Spotify's own screen - do not take over.
+                // else: Spicy disabled - keep Spotify's own lyrics screen.
             } else {
                 scheduleExtraLyricsButtonInjection(activity);
             }
@@ -179,7 +179,7 @@ final class LyricsActivityTakeoverHook {
 
     void markExplicitLyricsExit(Activity activity) {
         if (activity == null) return;
-        nativeLyricsSessionActive = false; // user is leaving - end the session (next open stays native)
+        nativeLyricsSessionActive = false; // user is leaving - end the session (next open takes over again)
         synchronized (EXPLICIT_LYRICS_EXIT_UNTIL_MS) {
             EXPLICIT_LYRICS_EXIT_UNTIL_MS.put(activity, SystemClock.elapsedRealtime() + 1200);
         }
@@ -735,7 +735,10 @@ final class LyricsActivityTakeoverHook {
         // Stale-root reclaim must not resurrect a session the user just exited.
         if (isExplicitLyricsExit(activity)) return false;
         if (nativeLyricsSessionActive || hasNativeSpicyRoot(activity)) return true;
-        if (!consumeTakeoverArmed()) return false;
+        // Any open of Spotify's lyrics screen (our button, the lyric card, or Spotify's own entry
+        // points) becomes the Spicy screen while the native Spicy switch is on.
+        boolean armed = consumeTakeoverArmed();
+        if (!armed && !isNativeSpicyEnabled(activity)) return false;
         // Promote the one-shot entry signal before waiting for a mount-ready window. This is the
         // durable lifecycle signal carried across rotation and Spotify activity relaunches.
         nativeLyricsSessionActive = true;
