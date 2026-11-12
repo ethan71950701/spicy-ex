@@ -2,6 +2,7 @@ package com.eza.spicyex.hooks;
 
 import android.app.Activity;
 import android.net.Uri;
+import android.os.Looper;
 
 import com.eza.spicyex.xposed.XpHooks;
 import com.eza.spicyex.xposed.XpLog;
@@ -45,11 +46,47 @@ final class SettingsFragmentTrace {
                 if (!uri.toLowerCase(java.util.Locale.ROOT).contains("settings")) return;
                 if (!SEEN_URIS.add(uri)) return;
                 XpLog.log(PREFIX + "uri=" + uri + " stack=" + stackOf());
+                if ("spotify:settings".equals(uri)) sampleMainThread();
             }, String.class);
             XpLog.log(PREFIX + "hooked Uri.parse");
         } catch (Throwable t) {
             XpLog.log(PREFIX + "Uri.parse unavailable: " + t.getClass().getSimpleName());
         }
+    }
+
+    /**
+     * Samples the main thread's stack every 80 ms for about 2 s after the settings route opens,
+     * and logs the unique frames. Compose composition frames show which code builds the rows.
+     */
+    private static void sampleMainThread() {
+        final Thread main = Looper.getMainLooper().getThread();
+        Thread sampler = new Thread(() -> {
+            Set<String> frames = new java.util.LinkedHashSet<>();
+            try {
+                for (int i = 0; i < 25; i++) {
+                    Thread.sleep(80);
+                    for (StackTraceElement frame : main.getStackTrace()) {
+                        if (frame.getClassName().startsWith("com.eza.spicyex.")) continue;
+                        frames.add(frame.getClassName() + "." + frame.getMethodName() + ":" + frame.getLineNumber());
+                    }
+                }
+            } catch (Throwable t) {
+                XpLog.log(PREFIX + "sampler failed: " + t.getClass().getSimpleName());
+            }
+            StringBuilder chunk = new StringBuilder();
+            int part = 0;
+            for (String frame : frames) {
+                if (chunk.length() + frame.length() > 700) {
+                    XpLog.log(PREFIX + "sample" + part++ + " " + chunk);
+                    chunk.setLength(0);
+                }
+                chunk.append(frame).append(" | ");
+            }
+            if (chunk.length() > 0) XpLog.log(PREFIX + "sample" + part + " " + chunk);
+            XpLog.log(PREFIX + "sample done frames=" + frames.size());
+        }, "SettingsTraceSampler");
+        sampler.setDaemon(true);
+        sampler.start();
     }
 
     private static void install(ClassLoader loader, String className) {
