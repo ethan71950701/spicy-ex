@@ -693,19 +693,12 @@ final class LyricsActivityTakeoverHook {
         activity.getWindow().getDecorView().removeCallbacks(poll);
     }
 
-    private String lastSettingsProbe = "";
-    private String lastLoggedSettingsProbe = "";
-
     private void updateSettingsHeaderButton(Activity activity) {
         FrameLayout content = activity.findViewById(android.R.id.content);
         if (content == null) return;
         View existing = content.findViewWithTag(TAG_SETTINGS_HEADER_BUTTON);
         boolean show = isNativeSpicyEnabled(activity) && !activity.isFinishing()
                 && isSpotifySettingsScreen(content);
-        if (!lastSettingsProbe.equals(lastLoggedSettingsProbe)) {
-            lastLoggedSettingsProbe = lastSettingsProbe;
-            XpLog.log(NativeSpicyLyricsHook.TAG + " settings header probe: " + lastSettingsProbe);
-        }
         Boolean previous;
         synchronized (settingsHeaderOnScreen) {
             previous = settingsHeaderOnScreen.put(activity, show);
@@ -737,61 +730,20 @@ final class LyricsActivityTakeoverHook {
     private boolean isSpotifySettingsScreen(View root) {
         List<View> composeViews = new java.util.ArrayList<>();
         collectComposeViews(root, composeViews, 0);
-        StringBuilder detail = new StringBuilder("compose=" + composeViews.size());
-        boolean found = false;
         for (View compose : composeViews) {
             AccessibilityNodeProvider provider = compose.getAccessibilityNodeProvider();
-            detail.append(" provider=").append(provider != null);
             if (provider == null) continue;
             for (String title : SETTINGS_TITLES) {
                 try {
                     List<AccessibilityNodeInfo> hits = provider.findAccessibilityNodeInfosByText(
                             title, AccessibilityNodeProvider.HOST_VIEW_ID);
-                    if (hits != null && !hits.isEmpty()) {
-                        detail.append(" hit=").append(title);
-                        found = true;
-                        break;
-                    }
-                    detail.append(" miss=").append(title).append(hits == null ? "(null)" : "");
-                } catch (Throwable t) {
-                    detail.append(" err=").append(t.getClass().getSimpleName());
+                    if (hits != null && !hits.isEmpty()) return true;
+                } catch (Throwable ignored) {
+                    // Provider without text search: treat as not on the settings page.
                 }
             }
-            if (found) break;
-            if (detail.length() < 400) detail.append(" texts=").append(sampleAccessibilityTexts(compose));
         }
-        lastSettingsProbe = detail.toString();
-        return found;
-    }
-
-    /** Diagnostic only: the first few text/description values Compose exposes for this view. */
-    private static String sampleAccessibilityTexts(View compose) {
-        try {
-            AccessibilityNodeInfo info = compose.createAccessibilityNodeInfo();
-            if (info == null) return "(no-info)";
-            StringBuilder out = new StringBuilder("[");
-            int count = 0;
-            ArrayDeque<AccessibilityNodeInfo> queue = new ArrayDeque<>();
-            queue.add(info);
-            while (!queue.isEmpty() && count < 12) {
-                AccessibilityNodeInfo node = queue.removeFirst();
-                CharSequence text = node.getText();
-                CharSequence desc = node.getContentDescription();
-                String value = text != null ? text.toString() : (desc != null ? desc.toString() : "");
-                if (!value.isEmpty()) {
-                    if (count > 0) out.append('|');
-                    out.append(value.length() > 20 ? value.substring(0, 20) : value);
-                    count++;
-                }
-                for (int i = 0; i < node.getChildCount() && queue.size() < 200; i++) {
-                    AccessibilityNodeInfo child = node.getChild(i);
-                    if (child != null) queue.addLast(child);
-                }
-            }
-            return out.append(']').toString();
-        } catch (Throwable t) {
-            return "(err " + t.getClass().getSimpleName() + ")";
-        }
+        return false;
     }
 
     private static void collectComposeViews(View view, List<View> out, int depth) {
