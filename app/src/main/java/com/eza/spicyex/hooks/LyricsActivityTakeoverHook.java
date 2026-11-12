@@ -11,6 +11,8 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeProvider;
 import android.os.Build;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
@@ -52,6 +54,8 @@ final class LyricsActivityTakeoverHook {
     private static final int SETTINGS_HEADER_TOP_DP = 47;
     // Left edge of our button measured from the screen's right edge: sits just left of Spotify's search icon.
     private static final int SETTINGS_HEADER_RIGHT_DP = 125;
+    // Spotify's settings title in each supported UI language.
+    private static final String[] SETTINGS_TITLES = {"設定", "设置", "Settings", "설정", "Настройки"};
 
     private static final WeakHashMap<Activity, Long> EXPLICIT_LYRICS_EXIT_UNTIL_MS = new WeakHashMap<>();
     private static final WeakHashMap<Activity, Long> KEEP_LYRICS_ACTIVITY_UNTIL_MS = new WeakHashMap<>();
@@ -697,7 +701,7 @@ final class LyricsActivityTakeoverHook {
         if (content == null) return;
         View existing = content.findViewWithTag(TAG_SETTINGS_HEADER_BUTTON);
         boolean show = isNativeSpicyEnabled(activity) && !activity.isFinishing()
-                && isSpotifySettingsScreen(activity);
+                && isSpotifySettingsScreen(content);
         if (!lastSettingsProbe.equals(lastLoggedSettingsProbe)) {
             lastLoggedSettingsProbe = lastSettingsProbe;
             XpLog.log(NativeSpicyLyricsHook.TAG + " settings header probe: " + lastSettingsProbe);
@@ -727,48 +731,76 @@ final class LyricsActivityTakeoverHook {
     }
 
     /**
-     * Diagnostic: lists Spotify's fragments (class, tag, visibility) so the settings page's fragment
-     * can be identified for this build. Detection is not wired to these yet.
+     * Spotify's settings page is Compose inside a fragment, so its title and rows are not real
+     * Views. Ask the Compose view's accessibility provider whether a settings title is present.
      */
-    private boolean isSpotifySettingsScreen(Activity activity) {
-        StringBuilder detail = new StringBuilder();
-        try {
-            Object fm = activity.getClass().getMethod("getSupportFragmentManager").invoke(activity);
-            appendFragments(fm, detail);
-        } catch (Throwable t) {
-            detail.append("support-fm=").append(t.getClass().getSimpleName());
-        }
-        lastSettingsProbe = detail.toString();
-        return false;
-    }
-
-    private static void appendFragments(Object fm, StringBuilder out) throws Exception {
-        Object list = fm.getClass().getMethod("getFragments").invoke(fm);
-        out.append("backstack=");
-        try {
-            out.append(fm.getClass().getMethod("getBackStackEntryCount").invoke(fm));
-        } catch (Throwable ignored) {
-            out.append('?');
-        }
-        out.append(" fragments=[");
-        boolean first = true;
-        if (list instanceof java.util.Collection) {
-            for (Object f : (java.util.Collection<?>) list) {
-                if (f == null) continue;
-                if (!first) out.append(", ");
-                first = false;
-                out.append(f.getClass().getName());
+    private boolean isSpotifySettingsScreen(View root) {
+        List<View> composeViews = new java.util.ArrayList<>();
+        collectComposeViews(root, composeViews, 0);
+        StringBuilder detail = new StringBuilder("compose=" + composeViews.size());
+        boolean found = false;
+        for (View compose : composeViews) {
+            AccessibilityNodeProvider provider = compose.getAccessibilityNodeProvider();
+            detail.append(" provider=").append(provider != null);
+            if (provider == null) continue;
+            for (String title : SETTINGS_TITLES) {
                 try {
-                    out.append(" tag=").append(f.getClass().getMethod("getTag").invoke(f));
-                } catch (Throwable ignored) {
-                }
-                try {
-                    out.append(" visible=").append(f.getClass().getMethod("isVisible").invoke(f));
-                } catch (Throwable ignored) {
+                    List<AccessibilityNodeInfo> hits = provider.findAccessibilityNodeInfosByText(
+                            title, AccessibilityNodeProvider.HOST_VIEW_ID);
+                    if (hits != null && !hits.isEmpty()) {
+                        detail.append(" hit=").append(title);
+                        found = true;
+                        break;
+                    }
+                    detail.append(" miss=").append(title).append(hits == null ? "(null)" : "");
+                } catch (Throwable t) {
+                    detail.append(" err=").append(t.getClass().getSimpleName());
                 }
             }
+            if (found) break;
+            if (detail.length() < 400) detail.append(" texts=").append(sampleAccessibilityTexts(compose));
         }
-        out.append(']');
+        lastSettingsProbe = detail.toString();
+        return found;
+    }
+
+    /** Diagnostic only: the first few text/description values Compose exposes for this view. */
+    private static String sampleAccessibilityTexts(View compose) {
+        try {
+            AccessibilityNodeInfo info = compose.createAccessibilityNodeInfo();
+            if (info == null) return "(no-info)";
+            StringBuilder out = new StringBuilder("[");
+            int count = 0;
+            ArrayDeque<AccessibilityNodeInfo> queue = new ArrayDeque<>();
+            queue.add(info);
+            while (!queue.isEmpty() && count < 12) {
+                AccessibilityNodeInfo node = queue.removeFirst();
+                CharSequence text = node.getText();
+                CharSequence desc = node.getContentDescription();
+                String value = text != null ? text.toString() : (desc != null ? desc.toString() : "");
+                if (!value.isEmpty()) {
+                    if (count > 0) out.append('|');
+                    out.append(value.length() > 20 ? value.substring(0, 20) : value);
+                    count++;
+                }
+                for (int i = 0; i < node.getChildCount() && queue.size() < 200; i++) {
+                    AccessibilityNodeInfo child = node.getChild(i);
+                    if (child != null) queue.addLast(child);
+                }
+            }
+            return out.append(']').toString();
+        } catch (Throwable t) {
+            return "(err " + t.getClass().getSimpleName() + ")";
+        }
+    }
+
+    private static void collectComposeViews(View view, List<View> out, int depth) {
+        if (view == null || depth > 40) return;
+        if (view.getClass().getName().contains("ComposeView")) out.add(view);
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) collectComposeViews(group.getChildAt(i), out, depth + 1);
+        }
     }
 
     private ImageButton createSettingsHeaderButton(Activity activity) {
