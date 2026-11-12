@@ -61,13 +61,17 @@ final class SettingsFragmentTrace {
     private static void sampleMainThread() {
         final Thread main = Looper.getMainLooper().getThread();
         Thread sampler = new Thread(() -> {
-            Set<String> frames = new java.util.LinkedHashSet<>();
+            // frame -> first sample index it appeared in (0 = at the route, larger = later)
+            java.util.Map<String, Integer> frames = new java.util.LinkedHashMap<>();
+            final int samples = 75;
             try {
-                for (int i = 0; i < 25; i++) {
+                for (int i = 0; i < samples; i++) {
                     Thread.sleep(80);
                     for (StackTraceElement frame : main.getStackTrace()) {
-                        if (frame.getClassName().startsWith("com.eza.spicyex.")) continue;
-                        frames.add(frame.getClassName() + "." + frame.getMethodName() + ":" + frame.getLineNumber());
+                        String cls = frame.getClassName();
+                        if (!(cls.startsWith("p.") || cls.startsWith("com.spotify."))) continue;
+                        String key = cls + "." + frame.getMethodName() + ":" + frame.getLineNumber();
+                        if (!frames.containsKey(key)) frames.put(key, i);
                     }
                 }
             } catch (Throwable t) {
@@ -75,15 +79,16 @@ final class SettingsFragmentTrace {
             }
             StringBuilder chunk = new StringBuilder();
             int part = 0;
-            for (String frame : frames) {
-                if (chunk.length() + frame.length() > 700) {
+            for (java.util.Map.Entry<String, Integer> e : frames.entrySet()) {
+                String item = e.getKey() + "@" + (e.getValue() * 80) + "ms";
+                if (chunk.length() + item.length() > 700) {
                     XpLog.log(PREFIX + "sample" + part++ + " " + chunk);
                     chunk.setLength(0);
                 }
-                chunk.append(frame).append(" | ");
+                chunk.append(item).append(" | ");
             }
             if (chunk.length() > 0) XpLog.log(PREFIX + "sample" + part + " " + chunk);
-            XpLog.log(PREFIX + "sample done frames=" + frames.size());
+            XpLog.log(PREFIX + "sample done app-frames=" + frames.size());
         }, "SettingsTraceSampler");
         sampler.setDaemon(true);
         sampler.start();
