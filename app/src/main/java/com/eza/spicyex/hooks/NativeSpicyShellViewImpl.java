@@ -4316,7 +4316,10 @@ final class NativeSpicyShellViewImpl extends FrameLayout {
         if (ok) {
             playbackClock.forcePosition(target, host.isPlayerActuallyPlaying());
             long lyricTarget = adjustedLyricPositionMs(target);
-            setActiveLine(index, lyricTarget, host.getCurrentTrackSafely(), true);
+            // Animated, not instant: a tap-seek glides to the new line the same way a normal
+            // advance does (Apple style: spring; other styles: smooth scroll). Long jumps are
+            // carried by the spring, so distance does not turn this into a hard cut.
+            setActiveLine(index, lyricTarget, host.getCurrentTrackSafely(), false);
             frameRenderer.applySynced(document, rowMountController.mountedIndices(), mountedRowsHost,
                     renderConfig, lyricTarget, index, 1f / 60f, false, 0, Integer.MAX_VALUE);
             XpLog.log(TAG + " seek line index=" + index + " ms=" + target + " lyricMs=" + lyricTarget);
