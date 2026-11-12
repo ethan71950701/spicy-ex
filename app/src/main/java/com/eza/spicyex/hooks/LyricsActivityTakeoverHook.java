@@ -7,9 +7,12 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.SystemClock;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeProvider;
 import android.os.Build;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
@@ -26,6 +29,7 @@ import com.eza.spicyex.SpotifyPlusConfig;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.WeakHashMap;
 
@@ -44,6 +48,14 @@ final class LyricsActivityTakeoverHook {
     private static final long[] EXTRA_INJECTION_DELAYS_MS = {450L, 950L, 1400L, 2400L};
     private static final long MINI_PLAYER_STEADY_RETRY_MS = 3000L;
     private static final long MINI_PLAYER_STEADY_RETRY_MAX_MS = 10 * 60 * 1000L;
+    private static final int TAG_SETTINGS_HEADER_BUTTON = 0x53504853; // SPHS
+    private static final long SETTINGS_HEADER_POLL_MS = 700L;
+    private static final int SETTINGS_HEADER_SIZE_DP = 60;
+    private static final int SETTINGS_HEADER_TOP_DP = 47;
+    // Left edge of our button measured from the screen's right edge: sits just left of Spotify's search icon.
+    private static final int SETTINGS_HEADER_RIGHT_DP = 125;
+    // Spotify's settings title in each supported UI language.
+    private static final String[] SETTINGS_TITLES = {"設定", "设置", "Settings", "설정", "Настройки"};
 
     private static final WeakHashMap<Activity, Long> EXPLICIT_LYRICS_EXIT_UNTIL_MS = new WeakHashMap<>();
     private static final WeakHashMap<Activity, Long> KEEP_LYRICS_ACTIVITY_UNTIL_MS = new WeakHashMap<>();
@@ -363,12 +375,14 @@ final class LyricsActivityTakeoverHook {
             }
             retry.postNext();
             nowPlayingInjector.schedule(activity);
+            startSettingsHeaderPoll(activity);
         } catch (Throwable t) {
             XpLog.log(NativeSpicyLyricsHook.TAG + " schedule extra lyrics injection failed: " + t);
         }
     }
 
     private void cancelExtraLyricsButtonInjection(Activity activity) {
+        stopSettingsHeaderPoll(activity);
         ExtraInjectionRetry retry;
         synchronized (extraInjectionRetries) {
             retry = extraInjectionRetries.remove(activity);
@@ -641,6 +655,119 @@ final class LyricsActivityTakeoverHook {
 
     static float controlRowCenterY(float barTop, int barHeight, int normalRowHeight) {
         return barTop + barHeight - normalRowHeight / 2f;
+    }
+
+    private final WeakHashMap<Activity, Runnable> settingsHeaderPollers = new WeakHashMap<>();
+    private final WeakHashMap<Activity, Boolean> settingsHeaderOnScreen = new WeakHashMap<>();
+
+    /** Polls while Spotify's main activity is in front, adding/removing the settings header button. */
+    private void startSettingsHeaderPoll(Activity activity) {
+        if (activity == null || isLyricsFullscreenActivity(activity)) return;
+        View decor = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
+        if (decor == null) return;
+        stopSettingsHeaderPoll(activity);
+        Runnable poll = new Runnable() {
+            @Override
+            public void run() {
+                if (activity.isFinishing() || activity.isDestroyed()) return;
+                try {
+                    updateSettingsHeaderButton(activity);
+                } catch (Throwable t) {
+                    XpLog.log(NativeSpicyLyricsHook.TAG + " settings header poll failed: " + t);
+                }
+                decor.postDelayed(this, SETTINGS_HEADER_POLL_MS);
+            }
+        };
+        synchronized (settingsHeaderPollers) {
+            settingsHeaderPollers.put(activity, poll);
+        }
+        decor.post(poll);
+    }
+
+    private void stopSettingsHeaderPoll(Activity activity) {
+        Runnable poll;
+        synchronized (settingsHeaderPollers) {
+            poll = settingsHeaderPollers.remove(activity);
+        }
+        if (poll == null || activity == null || activity.getWindow() == null) return;
+        activity.getWindow().getDecorView().removeCallbacks(poll);
+    }
+
+    private void updateSettingsHeaderButton(Activity activity) {
+        FrameLayout content = activity.findViewById(android.R.id.content);
+        if (content == null) return;
+        View existing = content.findViewWithTag(TAG_SETTINGS_HEADER_BUTTON);
+        boolean show = isNativeSpicyEnabled(activity) && !activity.isFinishing()
+                && isSpotifySettingsScreen(content);
+        Boolean previous;
+        synchronized (settingsHeaderOnScreen) {
+            previous = settingsHeaderOnScreen.put(activity, show);
+        }
+        if (previous == null || previous != show) {
+            XpLog.log(NativeSpicyLyricsHook.TAG + " settings header button " + (show ? "shown" : "hidden")
+                    + " in " + activity.getClass().getName());
+        }
+        if (!show) {
+            if (existing != null) content.removeView(existing);
+            return;
+        }
+        if (existing == null) {
+            ImageButton button = createSettingsHeaderButton(activity);
+            content.addView(button, new FrameLayout.LayoutParams(
+                    dp(SETTINGS_HEADER_SIZE_DP), dp(SETTINGS_HEADER_SIZE_DP), Gravity.TOP | Gravity.START));
+            existing = button;
+        }
+        if (content.getWidth() > 0) {
+            existing.setTranslationX(content.getWidth() - dp(SETTINGS_HEADER_RIGHT_DP));
+            existing.setTranslationY(dp(SETTINGS_HEADER_TOP_DP));
+        }
+    }
+
+    /**
+     * Spotify's settings page is Compose inside a fragment, so its title and rows are not real
+     * Views. Ask the Compose view's accessibility provider whether a settings title is present.
+     */
+    private boolean isSpotifySettingsScreen(View root) {
+        List<View> composeViews = new java.util.ArrayList<>();
+        collectComposeViews(root, composeViews, 0);
+        for (View compose : composeViews) {
+            AccessibilityNodeProvider provider = compose.getAccessibilityNodeProvider();
+            if (provider == null) continue;
+            for (String title : SETTINGS_TITLES) {
+                try {
+                    List<AccessibilityNodeInfo> hits = provider.findAccessibilityNodeInfosByText(
+                            title, AccessibilityNodeProvider.HOST_VIEW_ID);
+                    if (hits != null && !hits.isEmpty()) return true;
+                } catch (Throwable ignored) {
+                    // Provider without text search: treat as not on the settings page.
+                }
+            }
+        }
+        return false;
+    }
+
+    private static void collectComposeViews(View view, List<View> out, int depth) {
+        if (view == null || depth > 40) return;
+        if (view.getClass().getName().contains("ComposeView")) out.add(view);
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) collectComposeViews(group.getChildAt(i), out, depth + 1);
+        }
+    }
+
+    private ImageButton createSettingsHeaderButton(Activity activity) {
+        ImageButton button = new ImageButton(activity);
+        button.setTag(TAG_SETTINGS_HEADER_BUTTON);
+        button.setContentDescription("Open Spicy lyrics");
+        NativeIconButtons.setModuleIcon(button, activity, R.drawable.ic_spicy_lyrics_page);
+        button.setColorFilter(Color.rgb(232, 232, 238));
+        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setPadding(dp(13), dp(13), dp(13), dp(13));
+        button.setClickable(true);
+        button.setFocusable(true);
+        button.setOnClickListener(v -> launchNativeLyricsFullscreen(activity));
+        return button;
     }
 
     private View createMiniPlayerLyricsButton(Activity activity) {
