@@ -349,4 +349,7 @@
     <string name="settings_layout_editor_background_random_count">已选择 %1$d/%2$d</string>
     <string name="settings_layout_editor_background_search_empty">没有匹配的效果</string>
     <string name="settings_layout_editor_cancel">取消</string>
+    <string name="lyrics_source_footer">来源：%1$s · %2$s ›</string>
+    <string name="lyrics_source_provider">歌词提供者：%1$s</string>
+    <string name="lyrics_source_description">歌词来源：%1$s，%2$s。点按即可更改来源。</string>
 </resources>

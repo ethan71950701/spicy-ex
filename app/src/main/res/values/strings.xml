@@ -656,4 +656,7 @@
     <string name="settings_layout_editor_background_random_count">%1$d of %2$d selected</string>
     <string name="settings_layout_editor_background_search_empty">No matching effects</string>
     <string name="settings_layout_editor_cancel">Cancel</string>
+    <string name="lyrics_source_footer">Source: %1$s · %2$s ›</string>
+    <string name="lyrics_source_provider">lyrics provided by %1$s</string>
+    <string name="lyrics_source_description">Lyrics source: %1$s, %2$s. Activate to change source.</string>
 </resources>

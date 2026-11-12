@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spicy EX diagnostics (Traditional Chinese, Taiwan).
+-->
+<resources>
+    <string name="diagnostic_report_problem">報告問題</string>
+    <string name="diagnostic_category">類別</string>
+    <string name="diagnostic_category_missing_wrong">歌詞缺失或錯誤</string>
+    <string name="diagnostic_category_timing">時間軸</string>
+    <string name="diagnostic_category_translation">翻譯</string>
+    <string name="diagnostic_category_ai">AI 功能</string>
+    <string name="diagnostic_category_transliteration">轉寫或羅馬字</string>
+    <string name="diagnostic_category_fullscreen">全屏渲染器</string>
+    <string name="diagnostic_category_now_playing">正在播放卡片</string>
+    <string name="diagnostic_category_hyperglow">HyperGlow 橋接</string>
+    <string name="diagnostic_category_crash">崩潰或重啟</string>
+    <string name="diagnostic_category_other">其他</string>
+    <string name="diagnostic_description_hint">描述發生的情況</string>
+    <string name="diagnostic_description_count">%1$d/%2$d</string>
+    <string name="diagnostic_description_required">必須填寫描述。</string>
+    <string name="diagnostic_start_capture">開始捕獲</string>
+    <string name="diagnostic_preview_now">預覽</string>
+    <string name="diagnostic_capture_title">診斷捕獲</string>
+    <string name="diagnostic_capture_active">復現問題，然後在此完成。</string>
+    <string name="diagnostic_capture_interrupted">重啟後捕獲檔案缺失；報告已標記為中斷。</string>
+    <string name="diagnostic_finish_capture">完成捕獲</string>
+    <string name="diagnostic_cancel_capture">取消捕獲</string>
+    <string name="diagnostic_close">關閉</string>
+    <string name="diagnostic_capture_started">捕獲已開始。復現後重新開啟“關於與診斷”。</string>
+    <string name="diagnostic_capture_failed">無法開始捕獲。</string>
+    <string name="diagnostic_capture_cancelled">捕獲已取消。</string>
+    <string name="diagnostic_prepare_failed">無法準備報告。</string>
+    <string name="diagnostic_retention_notice">報告資料（包括當前歌曲、歌詞證據和近期 AI 請求負載）會保留，直到手動刪除或脫敏。</string>
+    <string name="diagnostic_accept_retention">我瞭解保留政策，並希望上傳此報告。</string>
+    <string name="diagnostic_data_policy">診斷資料政策 ↗</string>
+    <string name="diagnostic_accept_policy">我接受此政策。</string>
+    <string name="diagnostic_included_json">包含的 JSON</string>
+    <string name="diagnostic_preview">報告預覽</string>
+    <string name="diagnostic_upload">上傳</string>
+    <string name="diagnostic_discard">丟棄</string>
+    <string name="diagnostic_uploaded">報告已上傳</string>
+    <string name="diagnostic_report_id">報告 ID</string>
+    <string name="diagnostic_follow_up_notice">此報告系統不支援開發者或維護者回復。如需跟進，請透過 GitHub 或 Telegram 群直接聯絡他們。</string>
+    <string name="diagnostic_clip_label">Spicy EX 報告 ID</string>
+    <string name="diagnostic_retention_status">保留期限</string>
+    <string name="diagnostic_retention_indefinite">無限期；僅由維護者手動刪除或脫敏</string>
+    <string name="diagnostic_copy_id">複製 ID</string>
+    <string name="diagnostic_open_issue">開啟 GitHub Issue</string>
+    <string name="diagnostic_view_json">檢視 JSON</string>
+    <string name="diagnostic_save_json">儲存 JSON</string>
+    <string name="diagnostic_json_saved">已儲存到“下載/Spicy EX”。</string>
+    <string name="diagnostic_json_save_failed">無法儲存 JSON。</string>
+    <string name="diagnostic_id_copied">報告 ID 已複製。</string>
+    <string name="diagnostic_open_issue_failed">無法開啟 GitHub。</string>
+    <string name="diagnostic_upload_failed">上傳失敗。</string>
+    <string name="diagnostic_invalid_report">報告無效，伺服器已拒絕。</string>
+    <string name="diagnostic_id_collision">報告 ID 與不同資料衝突。</string>
+    <string name="diagnostic_too_large">報告過大。</string>
+    <string name="diagnostic_rate_limited">已達到上傳速率限制。請稍後手動重試。</string>
+    <string name="diagnostic_storage_unavailable">私有報告儲存不可用。</string>
+    <string name="diagnostic_redirect_rejected">伺服器返回了被拒絕的重定向。</string>
+    <string name="diagnostic_server_error">接收伺服器失敗。請稍後手動重試。</string>
+    <string name="diagnostic_network_error">網路請求失敗或超時。</string>
+    <string name="diagnostic_timeout">上傳超時。請稍後手動重試。</string>
+    <string name="diagnostic_invalid_response">伺服器返回了無效響應。</string>
+    <string name="diagnostic_setup_ready">環境：已就緒</string>
+    <string name="diagnostic_setup_warning">環境：需要檢查</string>
+    <string name="diagnostic_setup_failed">環境：未就緒</string>
+    <string name="diagnostic_check_hook_runtime">Hook 執行環境 / Xposed API</string>
+    <string name="diagnostic_check_spotify_process">Spotify 主程序</string>
+    <string name="diagnostic_check_internet">網路許可權</string>
+    <string name="diagnostic_check_features">模組功能</string>
+    <string name="diagnostic_check_installation">安裝：%1$s · 未檢查 Root</string>
+    <string name="diagnostic_check_hyperglow">HyperGlow 橋接：%1$s</string>
+</resources>

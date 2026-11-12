@@ -2931,13 +2931,13 @@ final class NativeSpicyShellViewImpl extends FrameLayout {
             return;
         }
         String sourceLabel = com.eza.spicyex.lyrics.SpicyOrgAttribution.sourceLabel(document);
-        sourceFooter.setText("Source: " + sourceLabel
-                + " · " + com.eza.spicyex.lyrics.catalog.CatalogPickerModel.displayTypeTiming(document.type) + " ›"
+        String sourceTiming = com.eza.spicyex.lyrics.catalog.CatalogPickerModel.displayTypeTiming(document.type);
+        sourceFooter.setText(uiFormat("lyrics_source_footer", "Source: %1$s · %2$s ›", sourceLabel, sourceTiming)
                 + (!hasWriters && !com.eza.spicyex.lyrics.providers.SpicyOrgPolicy.isRestricted(document)
-                ? "\nlyrics provided by " + sourceProviderLabel(document.provider) : ""));
-        sourceFooter.setContentDescription("Lyrics source: " + sourceLabel
-                + ", " + com.eza.spicyex.lyrics.catalog.CatalogPickerModel.displayTypeTiming(document.type)
-                + ". Activate to change source.");
+                ? "\n" + uiFormat("lyrics_source_provider", "lyrics provided by %1$s",
+                sourceProviderLabel(document.provider)) : ""));
+        sourceFooter.setContentDescription(uiFormat("lyrics_source_description",
+                "Lyrics source: %1$s, %2$s. Activate to change source.", sourceLabel, sourceTiming));
         rowMountController.markDirty();
         // A fresh document doesn't necessarily start at line 0: playback can already be mid-song
         // (resuming, a late-arriving fetch, a source swap). Anchoring the very first render at the
