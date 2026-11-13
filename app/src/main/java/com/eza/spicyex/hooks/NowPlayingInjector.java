@@ -90,6 +90,15 @@ final class NowPlayingInjector {
         return controller != null && controller.consumeArtworkBack();
     }
 
+    private static String viewIdName(View view) {
+        if (view.getId() == View.NO_ID) return "-";
+        try {
+            return view.getResources().getResourceEntryName(view.getId());
+        } catch (Throwable t) {
+            return "?" + view.getId();
+        }
+    }
+
     private static boolean lyricDumpDone;
 
     /** Diagnostic, once per process: lyric-related views with their on-screen position and text. */
