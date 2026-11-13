@@ -90,6 +90,45 @@ final class NowPlayingInjector {
         return controller != null && controller.consumeArtworkBack();
     }
 
+    private static boolean lyricDumpDone;
+
+    /** Diagnostic, once per process: lyric-related views with their on-screen position and text. */
+    private static void dumpLyricViewsOnce(View root) {
+        if (lyricDumpDone) return;
+        lyricDumpDone = true;
+        StringBuilder line = new StringBuilder();
+        int count = 0;
+        java.util.ArrayDeque<View> queue = new java.util.ArrayDeque<>();
+        queue.add(root);
+        while (!queue.isEmpty() && count < 160) {
+            View v = queue.removeFirst();
+            String cls = v.getClass().getSimpleName();
+            String id = viewIdName(v);
+            String text = v instanceof android.widget.TextView && ((android.widget.TextView) v).getText() != null
+                    ? ((android.widget.TextView) v).getText().toString() : "";
+            boolean lyricy = cls.contains("Lyric") || id.toLowerCase(java.util.Locale.ROOT).contains("lyric")
+                    || id.contains("overlay") || text.contains("歌詞");
+            if (lyricy) {
+                int[] loc = new int[2];
+                v.getLocationOnScreen(loc);
+                String item = cls + "#" + id + " vis=" + v.getVisibility() + " y=" + loc[1] + " h=" + v.getHeight()
+                        + (text.isEmpty() ? "" : " text=" + (text.length() > 8 ? text.substring(0, 8) : text)) + " | ";
+                if (line.length() + item.length() > 700) {
+                    XpLog.log(NativeSpicyLyricsHook.TAG + " lyric views: " + line);
+                    line.setLength(0);
+                }
+                line.append(item);
+                count++;
+            }
+            if (v instanceof ViewGroup) {
+                ViewGroup g = (ViewGroup) v;
+                for (int i = 0; i < g.getChildCount(); i++) queue.addLast(g.getChildAt(i));
+            }
+        }
+        if (line.length() > 0) XpLog.log(NativeSpicyLyricsHook.TAG + " lyric views: " + line);
+        XpLog.log(NativeSpicyLyricsHook.TAG + " lyric views done count=" + count);
+    }
+
     /**
      * Spotify's own lyrics footer (translate / share buttons) sits under the now-playing controls
      * as a sibling of the live card. Spicy's card has its own header actions, so the native footer
@@ -127,6 +166,7 @@ final class NowPlayingInjector {
             card.setLayoutParams(layoutParams);
             parent.addView(card, index);
             hideNativeLyricFooter(content);
+            dumpLyricViewsOnce(content);
 
             ArtworkLyricsOverlayView artworkOverlay = new ArtworkLyricsOverlayView(activity);
             artworkOverlay.setTag(TAG_ARTWORK_OVERLAY);
