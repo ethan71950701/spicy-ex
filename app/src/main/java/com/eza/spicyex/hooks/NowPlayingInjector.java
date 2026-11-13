@@ -90,6 +90,47 @@ final class NowPlayingInjector {
         return controller != null && controller.consumeArtworkBack();
     }
 
+    private static boolean composeDumpScheduled;
+
+    /** Diagnostic, once: after layout settles, log every ComposeView with its position and ancestry. */
+    private void scheduleComposeDump(FrameLayout content) {
+        if (composeDumpScheduled) return;
+        composeDumpScheduled = true;
+        content.postDelayed(() -> {
+            StringBuilder line = new StringBuilder();
+            java.util.ArrayDeque<View> queue = new java.util.ArrayDeque<>();
+            queue.add(content);
+            int count = 0;
+            while (!queue.isEmpty() && count < 60) {
+                View v = queue.removeFirst();
+                if (v.getClass().getName().contains("ComposeView") && v.getVisibility() == View.VISIBLE) {
+                    int[] loc = new int[2];
+                    v.getLocationOnScreen(loc);
+                    StringBuilder chain = new StringBuilder();
+                    View up = v.getParent() instanceof View ? (View) v.getParent() : null;
+                    for (int d = 0; up != null && d < 3; d++) {
+                        chain.append(up.getClass().getSimpleName()).append('#').append(viewIdName(up)).append('<');
+                        up = up.getParent() instanceof View ? (View) up.getParent() : null;
+                    }
+                    String item = viewIdName(v) + " y=" + loc[1] + " h=" + v.getHeight() + " w=" + v.getWidth()
+                            + " up=" + chain + " | ";
+                    if (line.length() + item.length() > 700) {
+                        XpLog.log(NativeSpicyLyricsHook.TAG + " compose views: " + line);
+                        line.setLength(0);
+                    }
+                    line.append(item);
+                    count++;
+                }
+                if (v instanceof ViewGroup) {
+                    ViewGroup g = (ViewGroup) v;
+                    for (int i = 0; i < g.getChildCount(); i++) queue.addLast(g.getChildAt(i));
+                }
+            }
+            if (line.length() > 0) XpLog.log(NativeSpicyLyricsHook.TAG + " compose views: " + line);
+            XpLog.log(NativeSpicyLyricsHook.TAG + " compose views done count=" + count);
+        }, 2500L);
+    }
+
     private static String viewIdName(View view) {
         if (view.getId() == View.NO_ID) return "-";
         try {
@@ -122,6 +163,7 @@ final class NowPlayingInjector {
             if (lyricsElement == null) return false;
             if (lyricsElement.getVisibility() != View.GONE) lyricsElement.setVisibility(View.GONE);
             hideNativeLyricFooter(content);
+            scheduleComposeDump(content);
             return true;
         } catch (Throwable t) {
             XpLog.log(NativeSpicyLyricsHook.TAG + " hide native lyric element failed: " + t);
