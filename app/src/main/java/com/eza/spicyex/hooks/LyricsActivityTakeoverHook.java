@@ -90,6 +90,7 @@ final class LyricsActivityTakeoverHook {
                 // else: Spicy disabled - leave Spotify's own lyrics screen untouched.
             } else {
                 scheduleExtraLyricsButtonInjection(activity);
+                if (isNativeSpicyEnabled(activity)) nowPlayingInjector.installCardGuard(activity);
             }
         }, android.os.Bundle.class);
 

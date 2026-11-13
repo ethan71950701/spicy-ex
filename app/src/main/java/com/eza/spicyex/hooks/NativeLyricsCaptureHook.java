@@ -529,6 +529,11 @@ final class NativeLyricsCaptureHook {
             }
         } catch (Throwable ignored) {
         }
-        nativeLyricsSource.captureCandidate(trackProvider.getCurrentTrack(), candidate, ctorArgs, sourceTag);
+        com.eza.spicyex.SpotifyTrack current = trackProvider.getCurrentTrack();
+        if (current != null && current.uri != null && !current.uri.isEmpty()) lastCapturedTrackUri = current.uri;
+        nativeLyricsSource.captureCandidate(current, candidate, ctorArgs, sourceTag);
     }
+
+    /** Uri of the track Spotify most recently returned lyrics for; read by the now-playing card hide. */
+    static volatile String lastCapturedTrackUri = "";
 }
