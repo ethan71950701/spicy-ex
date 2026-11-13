@@ -1868,7 +1868,7 @@ final class NativeSpicyShellViewImpl extends FrameLayout {
         lyricsScroll = new com.eza.spicyex.lyrics.ElasticScrollView(activity);
         // Lines meeting the very top and bottom of the screen are blurred instead of cut.
         // setPipPresentation turns this off again for the small picture-in-picture window.
-        ((com.eza.spicyex.lyrics.ElasticScrollView) lyricsScroll).setEdgeBlur(dp(130), dp(130));
+        ((com.eza.spicyex.lyrics.ElasticScrollView) lyricsScroll).setEdgeBlur(dp(EDGE_BLUR_DP), dp(EDGE_BLUR_DP));
         // Rubber-banding and the shortened scroll end are Apple Music's; every other animation
         // style scrolls like the plain ScrollView it was before.
         setElasticScrollEnabled(appleStyle());
@@ -3345,7 +3345,10 @@ final class NativeSpicyShellViewImpl extends FrameLayout {
      *  each line of a lyric that wraps - and only where a line actually meets the edge. The
      *  faster the list moves (either way) the longer the fade reaches; it eases back as the
      *  scroll slows. */
-    private static final int EDGE_FADE_DP = 40;
+    /** The blur band at each screen edge. The fade below is sized to the same band, so a line in
+     *  it is both blurred and faded instead of a bright smear past a short fade. */
+    private static final int EDGE_BLUR_DP = 130;
+    private static final int EDGE_FADE_DP = EDGE_BLUR_DP;
     /** How much longer the fade gets at full scroll speed, as a multiple of the above. */
     private static final float EDGE_FADE_SPEED_BOOST = 0.8f;
     /** Scroll speeds below this read as resting (an auto-follow step); full effect at the max. */
@@ -3387,6 +3390,7 @@ final class NativeSpicyShellViewImpl extends FrameLayout {
                 (edgeScaleSpeed - floor) / Math.max(1f, dp(EDGE_SCALE_SPEED_MAX_DP_PER_SEC) - floor)));
         s = s * (2f - s);
         float target = Math.min(dp(EDGE_FADE_DP) * (1f + EDGE_FADE_SPEED_BOOST * s), viewport * 0.15f);
+        target = Math.min(target, dp(EDGE_BLUR_DP));
         float ease = dt <= 0f ? 0f : 1f - (float) Math.exp(-dt / EDGE_SCALE_EASE_SEC);
         edgeFadePx = edgeFadePx < 0f ? target : edgeFadePx + (target - edgeFadePx) * ease;
         if (Math.abs(target - edgeFadePx) < 0.5f) edgeFadePx = target;
