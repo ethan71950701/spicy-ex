@@ -643,5 +643,4 @@
     <string name="lyrics_source_footer">ソース：%1$s · %2$s ›</string>
     <string name="lyrics_source_provider">歌詞提供：%1$s</string>
     <string name="lyrics_source_description">歌詞のソース：%1$s、%2$s。タップしてソースを変更。</string>
-    <string name="settings_label_spotify_lyrics_takeover">Spotify の歌詞からSpicy の歌詞を開く</string>
 </resources>

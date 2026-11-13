@@ -379,7 +379,6 @@ public final class ControlRegistry {
         panelStepper(rows, Settings.AUTO_RESUME_FOLLOW_DELAY_SECONDS, Visibility.NEVER);
         panelChoice(rows, Settings.AUTO_SKIP_INTRO_OUTRO, Visibility.ALWAYS);
         panelToggle(rows, Settings.MINI_PLAYER_LYRICS_ICON, Visibility.ALWAYS);
-        panelToggle(rows, Settings.SPOTIFY_LYRICS_TAKEOVER, Visibility.ALWAYS);
         panelChoice(rows, Settings.STATUS_BAR_HIDDEN_MODE, Visibility.ALWAYS);
         panelToggle(rows, Settings.LONG_PRESS_SHARE, Visibility.ALWAYS);
         panelStepper(rows, Settings.SYNC_OFFSET_MS, Visibility.ALWAYS);

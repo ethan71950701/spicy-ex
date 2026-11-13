@@ -191,11 +191,6 @@ public final class Settings {
             "mini_player_lyrics_icon", LYRICS, "Show lyrics icon on mini player", true
     );
 
-    // Opens Spicy's lyrics screen when Spotify's own lyrics entry is used. Turning it off only
-    // returns that entry to Spotify; the Spicy screen and this settings panel stay reachable.
-    public static final Setting<Boolean> SPOTIFY_LYRICS_TAKEOVER = boolSetting(true,
-            "spotify_lyrics_takeover", LYRICS, "Open Spicy lyrics from Spotify's lyrics", true
-    );
 
     // Which orientations keep the status bar hidden on the lyrics screen. A swipe from the
     // edge still shows it for a moment. Migrated from the portrait/landscape bool pair, so

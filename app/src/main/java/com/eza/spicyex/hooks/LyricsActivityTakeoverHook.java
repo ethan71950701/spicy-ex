@@ -2,6 +2,8 @@ package com.eza.spicyex.hooks;
 
 import static com.eza.spicyex.hooks.NativeLyricsUtils.dp;
 import static com.eza.spicyex.hooks.NativeLyricsUtils.isBlank;
+import static com.eza.spicyex.hooks.NativeLyricsUtils.safe;
+import static com.eza.spicyex.hooks.NativeLyricsUtils.trackIdFromUri;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -16,16 +18,19 @@ import android.window.OnBackInvokedDispatcher;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.eza.spicyex.Diagnostics;
 import com.eza.spicyex.R;
 import com.eza.spicyex.References;
 import com.eza.spicyex.Settings;
 import com.eza.spicyex.SpotifyPlusConfig;
+import com.eza.spicyex.SpotifyTrack;
 
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.WeakHashMap;
 
@@ -38,6 +43,7 @@ final class LyricsActivityTakeoverHook {
     private static final String LYRICS_FULLSCREEN_ACTIVITY =
             "com.spotify.lyrics.fullscreenview.page.LyricsFullscreenPageActivity";
     private static final int TAG_NATIVE_SPICY_ROOT = 0x53504C53; // SPLS
+    private static final int TAG_EXTRA_LYRICS_BUTTON = 0x53504C58; // SPLX
     private static final int TAG_MINI_PLAYER_LYRICS_BUTTON = 0x53504C4D; // SPLM
     private static final int TAG_COVERED_SIBLINGS = 0x53504C43; // SPLC
     private static final long KEEP_LYRICS_ACTIVITY_AFTER_MOUNT_MS = 3500L;
@@ -167,14 +173,6 @@ final class LyricsActivityTakeoverHook {
                     + " suppressed non-explicit lyrics activity finish to keep native renderer open");
             param.setResult(null);
         });
-    }
-
-    boolean isSpotifyLyricsTakeoverEnabled(Activity activity) {
-        try {
-            return SpotifyPlusConfig.from(activity).get(Settings.SPOTIFY_LYRICS_TAKEOVER);
-        } catch (Throwable ignored) {
-            return false;
-        }
     }
 
     boolean isNativeSpicyEnabled(Activity activity) {
@@ -368,6 +366,40 @@ final class LyricsActivityTakeoverHook {
         }
     }
 
+    private boolean injectExtraLyricsButton(Activity activity) {
+        try {
+            if (activity == null || activity.isFinishing()
+                    || isLyricsFullscreenActivity(activity)
+                    || !isNativeSpicyEnabled(activity)) return true;
+            FrameLayout content = activity.findViewById(android.R.id.content);
+            if (content == null) return false;
+            if (content.findViewWithTag(TAG_EXTRA_LYRICS_BUTTON) != null) return true;
+
+            // The Share/Queue cluster (accessory_row) is an R8-obfuscated ConstraintLayout. Add the
+            // entry button to its parent and position it into the empty footer space after layout.
+            // Looked up first, by its resource id: this runs every few seconds for minutes in the
+            // single main activity (the mini player alone passes the now-playing check), and the
+            // name-based scan plus the now-playing check walked the whole view tree each time.
+            View rowView = accessoryRow(activity, content);
+            if (rowView == null || !rowView.isShown() || rowView.getWidth() == 0) return false;
+            if (!isLikelyNowPlayingScreen(activity, content)) return false;
+            ViewGroup buttonHost = rowView.getParent() instanceof ViewGroup ? (ViewGroup) rowView.getParent() : null;
+            if (buttonHost == null) return false;
+            if (buttonHost.findViewWithTag(TAG_EXTRA_LYRICS_BUTTON) != null) return true;
+            int side = rowView.getHeight() > 0 ? rowView.getHeight() : dp(48);
+            View button = createExtraLyricsRowButton(activity);
+            buttonHost.addView(button, new ViewGroup.LayoutParams(side, side));
+            button.setTranslationX((buttonHost.getWidth() - side) / 2f);
+            button.setTranslationY(rowView.getTop() + (rowView.getHeight() - side) / 2f);
+            XpLog.log(NativeSpicyLyricsHook.TAG
+                    + " inserted Extra lyrics ♪ centered in footer in " + activity.getClass().getName());
+            return true;
+        } catch (Throwable t) {
+            XpLog.log(NativeSpicyLyricsHook.TAG + " inject extra lyrics button failed: " + t);
+            return false;
+        }
+    }
+
     private void cancelExtraLyricsButtonInjection(Activity activity) {
         ExtraInjectionRetry retry;
         synchronized (extraInjectionRetries) {
@@ -382,6 +414,7 @@ final class LyricsActivityTakeoverHook {
         private int attempt;
         private long steadyElapsedMs;
         private boolean cancelled;
+        private boolean extraDoneOnce;
 
         ExtraInjectionRetry(Activity activity, View decor) {
             this.activity = activity;
@@ -394,7 +427,9 @@ final class LyricsActivityTakeoverHook {
                 decor.postDelayed(this, EXTRA_INJECTION_DELAYS_MS[attempt++]);
                 return;
             }
-            // The mini-player bar lives on every screen but stays uninflated/GONE until the very first track starts
+            // injectExtraLyricsButton's target (accessory_row) is only reached post-playback
+            // (NowPlayingActivity), so it's always ready within this burst. The mini-player bar
+            // lives on every screen but stays uninflated/GONE until the very first track starts
             // playing in this activity's lifetime, which can happen long after this burst - so
             // once the burst is spent, keep polling steadily (bounded, not forever) instead of
             // giving up permanently.
@@ -411,7 +446,12 @@ final class LyricsActivityTakeoverHook {
         @Override
         public void run() {
             if (cancelled) return;
-            if (injectMiniPlayerLyricsButton(activity)) {
+            // Once the footer button lands it's done for good; no need to keep re-scanning for
+            // it every steady-retry tick alongside the mini-player poll.
+            boolean extraDone = extraDoneOnce || injectExtraLyricsButton(activity);
+            extraDoneOnce = extraDone;
+            boolean miniPlayerDone = injectMiniPlayerLyricsButton(activity);
+            if (extraDone && miniPlayerDone) {
                 synchronized (extraInjectionRetries) {
                     if (extraInjectionRetries.get(activity) == this) extraInjectionRetries.remove(activity);
                 }
@@ -690,6 +730,33 @@ final class LyricsActivityTakeoverHook {
         }
     }
 
+    private View createExtraLyricsRowButton(Activity activity) {
+        ImageButton button = new ImageButton(activity);
+        button.setTag(TAG_EXTRA_LYRICS_BUTTON);
+        button.setContentDescription("Open Spicy lyrics");
+        NativeIconButtons.setModuleIcon(button, activity, R.drawable.ic_spicy_lyrics_page);
+        button.setColorFilter(Color.rgb(232, 232, 238));
+        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setPadding(dp(13), dp(13), dp(13), dp(13));
+        button.setClickable(true);
+        button.setFocusable(true);
+        button.setOnClickListener(v -> launchNativeLyricsFullscreen(activity));
+        return button;
+    }
+
+    private int accessoryRowId;
+
+    private View accessoryRow(Activity activity, View content) {
+        if (accessoryRowId == 0) {
+            accessoryRowId = activity.getResources().getIdentifier(
+                    "accessory_row", "id", activity.getPackageName());
+            if (accessoryRowId == 0) accessoryRowId = View.NO_ID;
+        }
+        if (accessoryRowId != View.NO_ID) return content.findViewById(accessoryRowId);
+        return findViewByResourceEntryName(content, "accessory_row");
+    }
+
     private View findViewByResourceEntryName(View root, String entryName) {
         if (root == null || isBlank(entryName)) return null;
         ArrayDeque<View> queue = new ArrayDeque<>();
@@ -712,6 +779,57 @@ final class LyricsActivityTakeoverHook {
         return null;
     }
 
+    private boolean isLikelyNowPlayingScreen(Activity activity, View root) {
+        String activityName = activity == null ? "" : activity.getClass().getName().toLowerCase(Locale.ROOT);
+        if (activityName.contains("settings") || activityName.contains("lyrics")) return false;
+        if (activityName.contains("nowplaying") || activityName.contains("now_playing")) return true;
+        if (hasVisibleClassNameContaining(root, "nowplaying")
+                || hasVisibleClassNameContaining(root, "now_playing")
+                || hasVisibleClassNameContaining(root, "com.spotify.nowplaying")) return true;
+        SpotifyTrack track = host.getCurrentTrackSafely();
+        return track != null
+                && !isBlank(trackIdFromUri(track.uri))
+                && containsVisibleText(root, track.title)
+                && containsVisibleText(root, track.artist);
+    }
+
+    private boolean hasVisibleClassNameContaining(View root, String needleLower) {
+        if (root == null || isBlank(needleLower)) return false;
+        ArrayDeque<View> queue = new ArrayDeque<>();
+        queue.add(root);
+        while (!queue.isEmpty()) {
+            View view = queue.removeFirst();
+            String name = view.getClass().getName().toLowerCase(Locale.ROOT);
+            if (view.isShown() && name.contains(needleLower)) return true;
+            if (view instanceof ViewGroup) {
+                ViewGroup group = (ViewGroup) view;
+                for (int i = 0; i < group.getChildCount(); i++) queue.addLast(group.getChildAt(i));
+            }
+        }
+        return false;
+    }
+
+    private boolean containsVisibleText(View root, String needle) {
+        if (root == null || isBlank(needle)) return false;
+        String normalizedNeedle = needle.trim().toLowerCase(Locale.ROOT);
+        ArrayDeque<View> queue = new ArrayDeque<>();
+        queue.add(root);
+        while (!queue.isEmpty()) {
+            View view = queue.removeFirst();
+            if (view.isShown() && view instanceof TextView) {
+                CharSequence text = ((TextView) view).getText();
+                if (text != null && text.toString().trim().toLowerCase(Locale.ROOT).contains(normalizedNeedle)) {
+                    return true;
+                }
+            }
+            if (view instanceof ViewGroup) {
+                ViewGroup group = (ViewGroup) view;
+                for (int i = 0; i < group.getChildCount(); i++) queue.addLast(group.getChildAt(i));
+            }
+        }
+        return false;
+    }
+
     boolean launchNativeLyricsFullscreen(Activity activity) {
         try {
             if (activity == null || activity.isFinishing() || activity.isDestroyed()) return false;
@@ -721,7 +839,7 @@ final class LyricsActivityTakeoverHook {
             intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
             activity.startActivity(intent);
             XpLog.log(NativeSpicyLyricsHook.TAG
-                    + " launched native lyrics fullscreen (takeover armed) from Spicy lyrics button");
+                    + " launched native lyrics fullscreen (takeover armed) from Extra lyrics button");
             return true;
         } catch (Throwable t) {
             takeoverArmed = false;
@@ -743,10 +861,10 @@ final class LyricsActivityTakeoverHook {
         // Stale-root reclaim must not resurrect a session the user just exited.
         if (isExplicitLyricsExit(activity)) return false;
         if (nativeLyricsSessionActive || hasNativeSpicyRoot(activity)) return true;
-        // Any open of Spotify's lyrics screen (our button, the lyric card, or Spotify's own entry
-        // points) becomes the Spicy screen while the Spotify-entry switch is on.
+        // Every open of Spotify's lyrics screen (our button, the lyric card, or Spotify's own entry
+        // points) becomes the Spicy screen while the native Spicy switch is on.
         boolean armed = consumeTakeoverArmed();
-        if (!armed && !isSpotifyLyricsTakeoverEnabled(activity)) return false;
+        if (!armed && !isNativeSpicyEnabled(activity)) return false;
         // Promote the one-shot entry signal before waiting for a mount-ready window. This is the
         // durable lifecycle signal carried across rotation and Spotify activity relaunches.
         nativeLyricsSessionActive = true;
