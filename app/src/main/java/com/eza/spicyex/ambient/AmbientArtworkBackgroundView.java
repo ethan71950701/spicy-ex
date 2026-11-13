@@ -133,11 +133,16 @@ public final class AmbientArtworkBackgroundView extends View implements AmbientB
      */
     private static final float DEFAULT_RENDER_SCALE = 0.34f;
     /**
-     * Scales the shader clock for every effect. Apple Music's lyric background drifts so slowly
-     * it is barely noticeable; the stock effect speeds read as busy behind moving lyrics. This
-     * only slows the shader time - the track-change crossfade runs on its own clock.
+     * Scales the shader clock of the Paper effects. Their stock speeds read as busy behind moving
+     * lyrics. Kawarp is not scaled: its drift (time x 0.05, about a minute per cycle) is already
+     * Apple-slow, and slowing it further made it look frozen. This only changes the shader time -
+     * the track-change crossfade runs on its own clock.
      */
-    private static final double MOTION_SCALE = 0.4;
+    private static final double PAPER_MOTION_SCALE = 0.4;
+
+    private double motionScale() {
+        return effect == AmbientShaderEffect.KAWARP ? 1.0 : PAPER_MOTION_SCALE;
+    }
     /** User-configurable via {@link #setRenderScale}, backing the Background panel's Quality
      *  slider - lower trades softness for less sustained GPU/heat load, higher for crisper noise. */
     private float renderScale = DEFAULT_RENDER_SCALE;
@@ -601,7 +606,7 @@ public final class AmbientArtworkBackgroundView extends View implements AmbientB
     private void tick(long now) {
         posted = false;
         if (!animating()) { lastFrame = 0; return; }
-        if (lastFrame != 0) elapsedSeconds += Math.min(0.1, (now-lastFrame)/1e9) * MOTION_SCALE;
+        if (lastFrame != 0) elapsedSeconds += Math.min(0.1, (now-lastFrame)/1e9) * motionScale();
         lastFrame = now;
         invalidate();
         schedule();
