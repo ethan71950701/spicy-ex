@@ -185,7 +185,41 @@ final class NowPlayingInjector {
         if (top == null) return false;
         HIDDEN_CARDS.put(top, Boolean.TRUE);
         top.setVisibility(View.GONE);
+        logHiddenCardLayout(container, top);
         return true;
+    }
+
+    private static boolean hiddenLayoutLogged;
+
+    /** Diagnostic, once: which ancestor still reserves the hidden card's space. */
+    private static void logHiddenCardLayout(ViewGroup container, View card) {
+        if (hiddenLayoutLogged) return;
+        hiddenLayoutLogged = true;
+        container.postDelayed(() -> {
+            StringBuilder out = new StringBuilder();
+            View cursor = card;
+            for (int depth = 0; cursor != null && depth < 5; depth++) {
+                out.append(cursor.getClass().getSimpleName()).append('#').append(viewIdName(cursor))
+                        .append("{vis=").append(cursor.getVisibility())
+                        .append(" top=").append(cursor.getTop()).append(" h=").append(cursor.getHeight())
+                        .append(" lp=").append(cursor.getLayoutParams() == null ? "-"
+                                : cursor.getLayoutParams().height).append('}');
+                if (cursor == container) break;
+                View parent = cursor.getParent() instanceof View ? (View) cursor.getParent() : null;
+                if (parent instanceof ViewGroup) {
+                    ViewGroup g = (ViewGroup) parent;
+                    out.append(" siblings[");
+                    for (int i = 0; i < g.getChildCount() && i < 10; i++) {
+                        View sib = g.getChildAt(i);
+                        out.append(sib.getClass().getSimpleName()).append('@').append(sib.getTop())
+                                .append('+').append(sib.getHeight()).append('v').append(sib.getVisibility()).append(' ');
+                    }
+                    out.append("] < ");
+                }
+                cursor = parent;
+            }
+            XpLog.log(NativeSpicyLyricsHook.TAG + " hidden card layout: " + out);
+        }, 1500L);
     }
 
     private static void collectComposeViews(View root, java.util.List<View> out) {
