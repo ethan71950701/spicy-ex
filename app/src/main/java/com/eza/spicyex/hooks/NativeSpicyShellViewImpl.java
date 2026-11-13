@@ -387,6 +387,10 @@ final class NativeSpicyShellViewImpl extends FrameLayout {
     void setPipPresentation(int screenHeightPx, int cropTopPx, boolean albumArt) {
         boolean first = !pipPresentation;
         pipPresentation = true;
+        // A small PiP window has no status bar to blend into; keep its lines sharp to the edge.
+        if (lyricsScroll instanceof com.eza.spicyex.lyrics.ElasticScrollView) {
+            ((com.eza.spicyex.lyrics.ElasticScrollView) lyricsScroll).setEdgeBlur(0, 0);
+        }
         pipScreenHeightPx = screenHeightPx;
         pipCropTopPx = Math.max(0, cropTopPx);
         // Where the content sits on screen is shared with the full-screen shell; a PiP window's
@@ -1862,6 +1866,9 @@ final class NativeSpicyShellViewImpl extends FrameLayout {
         rowContainer().addView(subtitle, subtitleLp);
 
         lyricsScroll = new com.eza.spicyex.lyrics.ElasticScrollView(activity);
+        // Lines meeting the very top and bottom of the screen are blurred instead of cut.
+        // setPipPresentation turns this off again for the small picture-in-picture window.
+        ((com.eza.spicyex.lyrics.ElasticScrollView) lyricsScroll).setEdgeBlur(dp(72), dp(72));
         // Rubber-banding and the shortened scroll end are Apple Music's; every other animation
         // style scrolls like the plain ScrollView it was before.
         setElasticScrollEnabled(appleStyle());

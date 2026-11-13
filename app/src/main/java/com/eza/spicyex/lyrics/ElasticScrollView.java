@@ -106,7 +106,7 @@ public class ElasticScrollView extends ScrollView {
         backdropTopBand = top;
         backdropBottomBand = bottom;
         getViewTreeObserver().removeOnPreDrawListener(backdropTracker);
-        if (top != null || bottom != null) {
+        if (hasBackdrop()) {
             if (isAttachedToWindow()) getViewTreeObserver().addOnPreDrawListener(backdropTracker);
         } else {
             releaseBackdropBlur();
@@ -115,10 +115,39 @@ public class ElasticScrollView extends ScrollView {
         invalidate();
     }
 
+    private int edgeBlurTopPx, edgeBlurBottomPx;
+
+    /**
+     * A progressive blur over the top and bottom {@code px} of this view, independent of any band
+     * view, so lyric lines are softened instead of cut where they meet the screen edge. Combines
+     * with {@link #setBackdropBands} by taking whichever reaches further. 0 turns an edge off; it
+     * does nothing below API 33.
+     */
+    public void setEdgeBlur(int topPx, int bottomPx) {
+        topPx = backdropBlurSupported() ? Math.max(0, topPx) : 0;
+        bottomPx = backdropBlurSupported() ? Math.max(0, bottomPx) : 0;
+        if (topPx == edgeBlurTopPx && bottomPx == edgeBlurBottomPx) return;
+        edgeBlurTopPx = topPx;
+        edgeBlurBottomPx = bottomPx;
+        getViewTreeObserver().removeOnPreDrawListener(backdropTracker);
+        if (hasBackdrop()) {
+            if (isAttachedToWindow()) getViewTreeObserver().addOnPreDrawListener(backdropTracker);
+        } else {
+            releaseBackdropBlur();
+        }
+        updateBackdropBands();
+        invalidate();
+    }
+
+    private boolean hasBackdrop() {
+        return backdropTopBand != null || backdropBottomBand != null
+                || edgeBlurTopPx > 0 || edgeBlurBottomPx > 0;
+    }
+
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        if (backdropTopBand != null || backdropBottomBand != null) {
+        if (hasBackdrop()) {
             getViewTreeObserver().addOnPreDrawListener(backdropTracker);
         }
     }
@@ -137,10 +166,19 @@ public class ElasticScrollView extends ScrollView {
 
     /** Returns true when a band moved, resized, or faded since the last frame. */
     private boolean updateBackdropBands() {
-        int top = bandExtent(backdropTopBand, true);
-        int bottom = bandExtent(backdropBottomBand, false);
-        float topScale = top > 0 ? ((android.view.View) backdropTopBand.getParent()).getAlpha() : 0f;
-        float bottomScale = bottom > 0 ? ((android.view.View) backdropBottomBand.getParent()).getAlpha() : 0f;
+        int bandTop = bandExtent(backdropTopBand, true);
+        int bandBottom = bandExtent(backdropBottomBand, false);
+        int h = getHeight();
+        // The independent edge blur is clamped so the two bands never meet in a short view.
+        int edgeTop = h > 0 ? Math.min(edgeBlurTopPx, h / 4) : 0;
+        int edgeBottom = h > 0 ? Math.min(edgeBlurBottomPx, h / 4) : 0;
+        int top = Math.max(bandTop, edgeTop);
+        int bottom = Math.max(bandBottom, edgeBottom);
+        // A band fades with its dock; the edge blur is always fully on.
+        float topScale = edgeTop > 0 ? 1f : bandTop > 0
+                ? ((android.view.View) backdropTopBand.getParent()).getAlpha() : 0f;
+        float bottomScale = edgeBottom > 0 ? 1f : bandBottom > 0
+                ? ((android.view.View) backdropBottomBand.getParent()).getAlpha() : 0f;
         boolean changed = top != backdropTop || bottom != backdropBottom
                 || topScale != backdropTopScale || bottomScale != backdropBottomScale;
         backdropTop = top;
