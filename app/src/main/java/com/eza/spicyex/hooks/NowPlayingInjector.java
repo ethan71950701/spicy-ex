@@ -111,8 +111,10 @@ final class NowPlayingInjector {
         int topY = Integer.MAX_VALUE;
         for (int i = 0; i < group.getChildCount(); i++) {
             View child = group.getChildAt(i);
-            if (!child.getClass().getName().contains("ComposeView")) continue;
+            // The direct children are the card wrappers (an obfuscated class); the ComposeView
+            // sits one level inside each of them.
             if (child.getVisibility() != View.VISIBLE || child.getHeight() <= 0) continue;
+            if (!containsComposeView(child)) continue;
             int[] loc = new int[2];
             child.getLocationOnScreen(loc);
             if (loc[1] < topY) {
@@ -123,6 +125,16 @@ final class NowPlayingInjector {
         if (top != null) {
             top.setVisibility(View.GONE);
         }
+    }
+
+    private static boolean containsComposeView(View root) {
+        if (root.getClass().getName().contains("ComposeView")) return true;
+        if (!(root instanceof ViewGroup)) return false;
+        ViewGroup g = (ViewGroup) root;
+        for (int i = 0; i < g.getChildCount(); i++) {
+            if (containsComposeView(g.getChildAt(i))) return true;
+        }
+        return false;
     }
 
     private static View findViewByClassNameContaining(View root, String needle) {
