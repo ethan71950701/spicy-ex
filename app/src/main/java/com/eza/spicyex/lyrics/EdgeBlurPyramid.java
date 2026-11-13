@@ -16,8 +16,10 @@ import android.graphics.Shader;
 @android.annotation.TargetApi(33)
 final class EdgeBlurPyramid {
     private static final int LEVELS = 7;
-    /** Full radius from the edge to this fraction of the band, then a smoothstep to sharp. */
-    static final float FULL_FRACTION = 0.58f;
+    // The radius falls from its maximum at the outer edge to zero at the band's inner boundary as
+    // (1 - t)^2: continuous, with zero slope where it meets the sharp content. An earlier "full
+    // radius for 58% of the band, then smoothstep" profile left a flat blurred block and a short
+    // ramp, which read as a hard step.
 
     private static final String CODE =
         "uniform shader atlas; uniform float H; uniform float radius;\n"+
@@ -32,7 +34,7 @@ final class EdgeBlurPyramid {
         " float2 coeff=.5*x*x+.5*x+.16666667;float2 w1=-x3/3.+coeff;float2 w2=1.-w1;\n"+
         " float2 o1=(-.5*x3+coeff)/w1+c-.5;float2 o2=(X*X*X/6.)/w2+c+1.5;\n"+
         " return half(w1.x*w1.y)*tap(float2(o1.x,o1.y),l)+half(w2.x*w1.y)*tap(float2(o2.x,o1.y),l)+half(w1.x*w2.y)*tap(float2(o1.x,o2.y),l)+half(w2.x*w2.y)*tap(float2(o2.x,o2.y),l);}\n"+
-        "half4 main(float2 p){float t=clamp((p.y-"+FULL_FRACTION+"*H)/("+(1f - FULL_FRACTION)+"*H),0.,1.);float r=radius*(1.-smoothstep(0.,1.,t));\n"+
+        "half4 main(float2 p){float t=clamp(p.y/H,0.,1.);float k=1.-t;float r=radius*k*k;\n"+
         " float m=clamp(log2(max(r,.00001)*1.33333333),0.,6.);int lo=int(floor(m));return mix(level(p,lo),level(p,(lo<6?lo+1:6)),half(fract(m)));}\n";
 
     private final RenderNode[] levels = new RenderNode[LEVELS];

@@ -243,10 +243,19 @@ public class ElasticScrollView extends ScrollView {
             // A unit-length ramp, stretched to the current length by the shader matrix. Eased
             // rather than linear: the line thins out gently first and only vanishes right at
             // the edge, which reads softer than an even fade.
+            // 17 stops of (1 - t)^2.4: dense enough that the linear segments between them show no
+            // kinks, with a gentle slope where the fade meets the sharp lyrics.
+            int stops = 17;
+            int[] colors = new int[stops];
+            float[] positions = new float[stops];
+            for (int i = 0; i < stops; i++) {
+                float t = i / (float) (stops - 1);
+                positions[i] = t;
+                int alpha = Math.round(255f * (float) Math.pow(1f - t, 2.4f));
+                colors[i] = alpha << 24;
+            }
             edgeFadeShader = new android.graphics.LinearGradient(0f, 0f, 0f, 1f,
-                    new int[]{0xFF000000, 0xB0000000, 0x60000000, 0x24000000, 0x08000000, 0x00000000},
-                    new float[]{0f, 0.18f, 0.4f, 0.62f, 0.82f, 1f},
-                    android.graphics.Shader.TileMode.CLAMP);
+                    colors, positions, android.graphics.Shader.TileMode.CLAMP);
             edgeFadePaint.setShader(edgeFadeShader);
         }
         int top = getScrollY();

@@ -1868,7 +1868,7 @@ final class NativeSpicyShellViewImpl extends FrameLayout {
         lyricsScroll = new com.eza.spicyex.lyrics.ElasticScrollView(activity);
         // Lines meeting the very top and bottom of the screen are blurred instead of cut.
         // setPipPresentation turns this off again for the small picture-in-picture window.
-        ((com.eza.spicyex.lyrics.ElasticScrollView) lyricsScroll).setEdgeBlur(dp(72), dp(72));
+        ((com.eza.spicyex.lyrics.ElasticScrollView) lyricsScroll).setEdgeBlur(dp(130), dp(130));
         // Rubber-banding and the shortened scroll end are Apple Music's; every other animation
         // style scrolls like the plain ScrollView it was before.
         setElasticScrollEnabled(appleStyle());
