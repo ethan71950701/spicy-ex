@@ -171,7 +171,7 @@ public class StoredValueRoundTripTest {
 
     @Test
     public void liveCardTapModesKeepTheirLabels() {
-        assertRoundTrip(Settings.LIVE_CARD_TAP_MODE, LiveCardTapMode.class, "Double tap",
+        assertRoundTrip(Settings.LIVE_CARD_TAP_MODE, LiveCardTapMode.class, "Single tap",
                 "Off", "Single tap", "Double tap");
         assertRoundTrip(Settings.LIVE_CARD_TAP_TARGET, LiveCardTapTarget.class, "Fullscreen",
                 "Fullscreen", "Artwork");

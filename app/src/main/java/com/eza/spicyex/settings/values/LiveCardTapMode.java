@@ -10,8 +10,8 @@ public enum LiveCardTapMode implements StoredValue {
     SINGLE_TAP("Single tap"),
     DOUBLE_TAP("Double tap");
 
-    /** The value used when the stored label is unknown or absent. */
-    public static final LiveCardTapMode DEFAULT = DOUBLE_TAP;
+    /** The value used when the stored label is unknown or absent: a single tap opens lyrics. */
+    public static final LiveCardTapMode DEFAULT = SINGLE_TAP;
 
     private final String label;
     private final List<String> legacyLabels;
