@@ -58,8 +58,8 @@ public final class AmbientArtworkTexture {
         } finally {
             small.recycle();
         }
-        float[] normal = kawase(pixels, SIZE, SIZE, false);
-        float[] dark = kawase(pixels, SIZE, SIZE, true);
+        float[] normal = smoothMore(kawase(pixels, SIZE, SIZE, false), SIZE, SIZE);
+        float[] dark = smoothMore(kawase(pixels, SIZE, SIZE, true), SIZE, SIZE);
         // Only profile analysis is quantized; the displayed texture retains fractional channels.
         int[] profilePixels = new int[pixels.length];
         for (int i = 0; i < pixels.length; i++) {
@@ -103,6 +103,35 @@ public final class AmbientArtworkTexture {
             a[3*i+2] = blue + (0.03f-blue)*tint;
         }
         for (int pass = 0; pass < 8; pass++) {
+            float offset = pass + 0.5f;
+            for (int y = 0; y < height; y++) for (int x = 0; x < width; x++) {
+                for (int c = 0; c < 3; c++) {
+                    b[3*(y*width+x)+c] = 0.25f * (
+                            sample(a,width,height,x-offset,y-offset,c)
+                            + sample(a,width,height,x+offset,y-offset,c)
+                            + sample(a,width,height,x-offset,y+offset,c)
+                            + sample(a,width,height,x+offset,y+offset,c));
+                }
+            }
+            float[] swap = a; a = b; b = swap;
+        }
+        return a;
+    }
+
+    /** Extra Kawase passes at offsets 8.5 through 13.5, after the desktop-matched eight. */
+    private static final int EXTRA_PASS_START = 8;
+    private static final int EXTRA_PASS_END = 14;
+
+    /**
+     * Blurs the desktop-matched result further. The eight desktop passes only reach a standard
+     * deviation of about 13px on this 128px tile (roughly a tenth of its width), which leaves the
+     * cover's color regions with visible edges. Apple Music's backdrop is blurred far past that, so
+     * regions melt into one gradient. {@link #kawase} stays as is: tests pin it to the desktop
+     * kernel. Six more passes bring the deviation to about 30px.
+     */
+    static float[] smoothMore(float[] a, int width, int height) {
+        float[] b = new float[a.length];
+        for (int pass = EXTRA_PASS_START; pass < EXTRA_PASS_END; pass++) {
             float offset = pass + 0.5f;
             for (int y = 0; y < height; y++) for (int x = 0; x < width; x++) {
                 for (int c = 0; c < 3; c++) {
