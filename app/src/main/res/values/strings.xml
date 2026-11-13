@@ -28,7 +28,6 @@
     <string name="settings_label_lyric_skip_chip_position">Skip chip position</string>
     <string name="settings_label_lyric_skip_chip_style">Skip chip style</string>
     <string name="settings_label_lyric_auto_skip_intro_outro">Auto-skip intro/outro</string>
-    <string name="settings_label_mini_player_lyrics_icon">Show lyrics icon on mini player</string>
     <string name="settings_label_lyric_liked_songs_button">Add to Liked Songs button</string>
     <string name="settings_option_heart">Heart</string>
     <string name="settings_option_star">Star</string>

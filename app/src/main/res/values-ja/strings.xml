@@ -26,7 +26,6 @@
     <string name="settings_label_lyric_skip_chip_position">スキップチップの位置</string>
     <string name="settings_label_lyric_skip_chip_style">スキップチップのスタイル</string>
     <string name="settings_label_lyric_auto_skip_intro_outro">自動イントロ/アウトロスキップ</string>
-    <string name="settings_label_mini_player_lyrics_icon">ミニプレイヤーにリリックスアイコンを表示</string>
     <string name="settings_label_lyric_liked_songs_button">「お気に入りの曲」に追加ボタン</string>
     <string name="settings_option_heart">ハート</string>
     <string name="settings_option_star">星</string>

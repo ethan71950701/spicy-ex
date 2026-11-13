@@ -243,7 +243,6 @@
 
     <string name="settings_section_apple_music">Стиль анимации Apple</string>
     <string name="settings_label_lyric_auto_skip_intro_outro">Авто-скип интро / оутро</string>
-    <string name="settings_label_mini_player_lyrics_icon">Показывать иконку текста в мини плеере</string>
     <string name="settings_label_lyric_liked_songs_button">Кнопка Добавить в Любимое</string>
     <string name="settings_option_heart">Сердце</string>
     <string name="settings_option_star">Звезда</string>

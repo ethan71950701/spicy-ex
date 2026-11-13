@@ -185,12 +185,6 @@ public final class Settings {
             "lyric_follow_chip_icon", INTERNAL, "Follow-lyrics chip icon", FollowChipIcon.class
     );
 
-    // Adds a button to Spotify's persistent mini player (every non-lyrics screen) that jumps
-    // straight to the native fullscreen lyrics - see LyricsActivityTakeoverHook.
-    public static final Setting<Boolean> MINI_PLAYER_LYRICS_ICON = boolSetting(false,
-            "mini_player_lyrics_icon", LYRICS, "Show lyrics icon on mini player", true
-    );
-
 
     // Which orientations keep the status bar hidden on the lyrics screen. A swipe from the
     // edge still shows it for a moment. Migrated from the portrait/landscape bool pair, so

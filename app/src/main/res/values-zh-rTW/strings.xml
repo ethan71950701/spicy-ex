@@ -27,7 +27,6 @@
     <string name="settings_label_lyric_skip_chip_position">跳過按鈕位置</string>
     <string name="settings_label_lyric_skip_chip_style">跳過按鈕樣式</string>
     <string name="settings_label_lyric_auto_skip_intro_outro">自動跳過前奏/尾奏</string>
-    <string name="settings_label_mini_player_lyrics_icon">在迷你播放器顯示歌詞圖示</string>
     <string name="settings_label_lyric_liked_songs_button">加入「喜愛的歌曲」按鈕</string>
     <string name="settings_option_heart">愛心</string>
     <string name="settings_option_star">星星</string>

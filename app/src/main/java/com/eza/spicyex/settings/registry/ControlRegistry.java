@@ -378,7 +378,6 @@ public final class ControlRegistry {
         // this row never matched, and no surface renders the setting today.
         panelStepper(rows, Settings.AUTO_RESUME_FOLLOW_DELAY_SECONDS, Visibility.NEVER);
         panelChoice(rows, Settings.AUTO_SKIP_INTRO_OUTRO, Visibility.ALWAYS);
-        panelToggle(rows, Settings.MINI_PLAYER_LYRICS_ICON, Visibility.ALWAYS);
         panelChoice(rows, Settings.STATUS_BAR_HIDDEN_MODE, Visibility.ALWAYS);
         panelToggle(rows, Settings.LONG_PRESS_SHARE, Visibility.ALWAYS);
         panelStepper(rows, Settings.SYNC_OFFSET_MS, Visibility.ALWAYS);
