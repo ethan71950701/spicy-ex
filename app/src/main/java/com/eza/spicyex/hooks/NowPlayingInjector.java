@@ -99,45 +99,6 @@ final class NowPlayingInjector {
         }
     }
 
-    private static boolean lyricDumpDone;
-
-    /** Diagnostic, once per process: lyric-related views with their on-screen position and text. */
-    private static void dumpLyricViewsOnce(View root) {
-        if (lyricDumpDone) return;
-        lyricDumpDone = true;
-        StringBuilder line = new StringBuilder();
-        int count = 0;
-        java.util.ArrayDeque<View> queue = new java.util.ArrayDeque<>();
-        queue.add(root);
-        while (!queue.isEmpty() && count < 160) {
-            View v = queue.removeFirst();
-            String cls = v.getClass().getSimpleName();
-            String id = viewIdName(v);
-            String text = v instanceof android.widget.TextView && ((android.widget.TextView) v).getText() != null
-                    ? ((android.widget.TextView) v).getText().toString() : "";
-            boolean lyricy = cls.contains("Lyric") || id.toLowerCase(java.util.Locale.ROOT).contains("lyric")
-                    || id.contains("overlay") || text.contains("歌詞");
-            if (lyricy) {
-                int[] loc = new int[2];
-                v.getLocationOnScreen(loc);
-                String item = cls + "#" + id + " vis=" + v.getVisibility() + " y=" + loc[1] + " h=" + v.getHeight()
-                        + (text.isEmpty() ? "" : " text=" + (text.length() > 8 ? text.substring(0, 8) : text)) + " | ";
-                if (line.length() + item.length() > 700) {
-                    XpLog.log(NativeSpicyLyricsHook.TAG + " lyric views: " + line);
-                    line.setLength(0);
-                }
-                line.append(item);
-                count++;
-            }
-            if (v instanceof ViewGroup) {
-                ViewGroup g = (ViewGroup) v;
-                for (int i = 0; i < g.getChildCount(); i++) queue.addLast(g.getChildAt(i));
-            }
-        }
-        if (line.length() > 0) XpLog.log(NativeSpicyLyricsHook.TAG + " lyric views: " + line);
-        XpLog.log(NativeSpicyLyricsHook.TAG + " lyric views done count=" + count);
-    }
-
     /**
      * Spotify's own lyrics footer (translate / share buttons) sits under the now-playing controls
      * as a sibling of the live card. Spicy's card has its own header actions, so the native footer
@@ -148,82 +109,22 @@ final class NowPlayingInjector {
         if (footer != null && footer.getVisibility() != View.GONE) footer.setVisibility(View.GONE);
     }
 
+    /**
+     * Option A: the now-playing page keeps no lyric card. Spotify's lyric element is hidden and the
+     * native footer is hidden with it; lyrics open from the footer button instead.
+     */
     private boolean inject(Activity activity) {
         try {
             if (activity == null || !hook.isNativeSpicyEnabled(activity)) return true;
             FrameLayout content = activity.findViewById(android.R.id.content);
             if (content == null) return false;
-            if (content.findViewWithTag(TAG_LIVE_CARD) != null) {
-                hideNativeLyricFooter(content);
-                NowPlayingLyricController controller;
-                synchronized (controllers) {
-                    controller = controllers.get(activity);
-                }
-                if (controller != null) controller.start();
-                return true;
-            }
             View lyricsElement = findViewByResourceEntryName(content, "lyrics_element");
-            if (lyricsElement == null || !(lyricsElement.getParent() instanceof ViewGroup)) return false;
-            ViewGroup parent = (ViewGroup) lyricsElement.getParent();
-            if (parent.findViewWithTag(TAG_LIVE_CARD) != null) return true;
-
-            int index = parent.indexOfChild(lyricsElement);
-            ViewGroup.LayoutParams layoutParams = lyricsElement.getLayoutParams();
-            LiveLyricCardView card = new LiveLyricCardView(activity);
-            card.setTag(TAG_LIVE_CARD);
-            parent.removeView(lyricsElement);
-            card.setLayoutParams(layoutParams);
-            parent.addView(card, index);
+            if (lyricsElement == null) return false;
+            if (lyricsElement.getVisibility() != View.GONE) lyricsElement.setVisibility(View.GONE);
             hideNativeLyricFooter(content);
-            dumpLyricViewsOnce(content);
-
-            ArtworkLyricsOverlayView artworkOverlay = new ArtworkLyricsOverlayView(activity);
-            artworkOverlay.setTag(TAG_ARTWORK_OVERLAY);
-            content.addView(artworkOverlay, new FrameLayout.LayoutParams(1, 1));
-
-            NowPlayingLyricController controller = new NowPlayingLyricController(
-                    hook, activity, card, artworkOverlay, new NowPlayingLyricController.ArtworkTargetHost() {
-                private NowPlayingLyricController.TargetInvalidationListener invalidationListener;
-
-                @Override
-                public NowPlayingArtworkTargetResolver.Resolution resolve(boolean applyBounds) {
-                    return resolveArtworkTarget(
-                            activity, artworkOverlay, applyBounds, invalidationListener);
-                }
-
-                @Override
-                public void invalidate() {
-                    invalidateArtworkTarget(activity);
-                }
-
-                @Override
-                public void setInvalidationListener(
-                        NowPlayingLyricController.TargetInvalidationListener listener
-                ) {
-                    invalidationListener = listener;
-                }
-            });
-            synchronized (controllers) {
-                controllers.put(activity, controller);
-            }
-            controller.start();
-
-            View decor = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
-            if (decor != null) {
-                AlignmentRetry alignment = new AlignmentRetry(activity, decor, card);
-                synchronized (alignments) {
-                    alignments.put(activity, alignment);
-                }
-                alignment.postNext();
-            }
-            XpLog.log(NativeSpicyLyricsHook.TAG + " live lyric card injected in " + activity.getClass().getName());
-            Diagnostics.event("renderer", "mount_state",
-                    Diagnostics.context("surface", "now_playing", "mounted", "true"));
             return true;
         } catch (Throwable t) {
-            XpLog.log(NativeSpicyLyricsHook.TAG + " live card inject failed: " + t);
-            Diagnostics.event("renderer", "mount_state", t,
-                    Diagnostics.context("surface", "now_playing", "mounted", "false"));
+            XpLog.log(NativeSpicyLyricsHook.TAG + " hide native lyric element failed: " + t);
             return false;
         }
     }
