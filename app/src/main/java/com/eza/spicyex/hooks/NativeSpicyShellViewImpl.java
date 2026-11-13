@@ -4314,7 +4314,11 @@ final class NativeSpicyShellViewImpl extends FrameLayout {
         followState.clearHold();
         boolean ok = host.seekSpotifyTo(target);
         if (ok) {
-            playbackClock.forcePosition(target, host.isPlayerActuallyPlaying());
+            // Tapping a line while paused starts playback from it, like Apple Music. The play
+            // request is async, so the clock is told it is playing instead of reading the stale state.
+            boolean playing = host.isPlayerActuallyPlaying();
+            if (!playing && host.togglePlayPause()) playing = true;
+            playbackClock.forcePosition(target, playing);
             long lyricTarget = adjustedLyricPositionMs(target);
             // Animated, not instant: a tap-seek glides to the new line the same way a normal
             // advance does (Apple style: spring; other styles: smooth scroll). Long jumps are
