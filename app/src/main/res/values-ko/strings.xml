@@ -644,4 +644,5 @@
     <string name="lyrics_source_footer">소스: %1$s · %2$s ›</string>
     <string name="lyrics_source_provider">가사 제공: %1$s</string>
     <string name="lyrics_source_description">가사 소스: %1$s, %2$s. 탭하여 소스를 변경하세요.</string>
+    <string name="settings_layout_editor">가사 화면 레이아웃 편집기…</string>
 </resources>

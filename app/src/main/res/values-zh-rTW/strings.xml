@@ -650,4 +650,5 @@
     <string name="lyrics_source_footer">來源：%1$s · %2$s ›</string>
     <string name="lyrics_source_provider">歌詞提供者：%1$s</string>
     <string name="lyrics_source_description">歌詞來源：%1$s，%2$s。點按即可更改來源。</string>
+    <string name="settings_layout_editor">歌詞畫面編輯器…</string>
 </resources>

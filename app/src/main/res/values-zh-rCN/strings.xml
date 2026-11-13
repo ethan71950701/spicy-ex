@@ -652,4 +652,5 @@
     <string name="settings_option_metaballs">Metaballs</string>
     <string name="settings_option_pulsing_border">脉动边框</string>
     <string name="settings_option_grain_gradient">颗粒渐层</string>
+    <string name="settings_layout_editor">歌词画面编辑器…</string>
 </resources>
