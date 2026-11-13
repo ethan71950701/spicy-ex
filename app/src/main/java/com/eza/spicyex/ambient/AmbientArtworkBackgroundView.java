@@ -129,6 +129,12 @@ public final class AmbientArtworkBackgroundView extends View implements AmbientB
      * whole lyrics session is a real sustained-heat source on older/weaker GPUs.
      */
     private static final float DEFAULT_RENDER_SCALE = 0.34f;
+    /**
+     * Scales the shader clock for every effect. Apple Music's lyric background drifts so slowly
+     * it is barely noticeable; the stock effect speeds read as busy behind moving lyrics. This
+     * only slows the shader time - the track-change crossfade runs on its own clock.
+     */
+    private static final double MOTION_SCALE = 0.4;
     /** User-configurable via {@link #setRenderScale}, backing the Background panel's Quality
      *  slider - lower trades softness for less sustained GPU/heat load, higher for crisper noise. */
     private float renderScale = DEFAULT_RENDER_SCALE;
@@ -592,7 +598,7 @@ public final class AmbientArtworkBackgroundView extends View implements AmbientB
     private void tick(long now) {
         posted = false;
         if (!animating()) { lastFrame = 0; return; }
-        if (lastFrame != 0) elapsedSeconds += Math.min(0.1, (now-lastFrame)/1e9);
+        if (lastFrame != 0) elapsedSeconds += Math.min(0.1, (now-lastFrame)/1e9) * MOTION_SCALE;
         lastFrame = now;
         invalidate();
         schedule();
