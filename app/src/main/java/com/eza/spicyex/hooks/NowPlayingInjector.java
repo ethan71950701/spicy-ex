@@ -123,41 +123,47 @@ final class NowPlayingInjector {
     }
 
     /**
-     * Spotify's native lyrics card is the top card in the now-playing card list (above SongDNA).
-     * It is hidden only when Spotify has lyrics for the playing track, so a track without lyrics
-     * keeps its real top card. A card we hid stays hidden; no second card is ever hidden.
+     * Spotify's cards are ComposeViews stacked inside one wrapper under the card list, with the
+     * native lyrics card first (above SongDNA). Only that first ComposeView is hidden - never the
+     * wrapper, which holds every card - and only when Spotify has lyrics for the playing track, so
+     * a track without lyrics keeps its real top card. A card we hid stays hidden; nothing else is.
      */
     private static void hideTopLyricCard(ViewGroup container, boolean hasNativeLyrics) {
-        View hiddenByUs = null;
-        for (int i = 0; i < container.getChildCount(); i++) {
-            View child = container.getChildAt(i);
-            if (HIDDEN_CARDS.containsKey(child)) {
-                hiddenByUs = child;
-                break;
+        java.util.List<View> cards = new java.util.ArrayList<>();
+        collectComposeViews(container, cards);
+        for (View card : cards) {
+            if (HIDDEN_CARDS.containsKey(card)) {
+                if (card.getVisibility() != View.GONE) card.setVisibility(View.GONE);
+                return;
             }
         }
-        if (hiddenByUs != null) {
-            if (hiddenByUs.getVisibility() != View.GONE) hiddenByUs.setVisibility(View.GONE);
-            return;
-        }
         if (!hasNativeLyrics) return;
-        for (int i = 0; i < container.getChildCount(); i++) {
-            View child = container.getChildAt(i);
-            if (child.getVisibility() != View.VISIBLE) continue;
-            HIDDEN_CARDS.put(child, Boolean.TRUE);
-            child.setVisibility(View.GONE);
+        for (View card : cards) {
+            if (card.getVisibility() != View.VISIBLE) continue;
+            HIDDEN_CARDS.put(card, Boolean.TRUE);
+            card.setVisibility(View.GONE);
             return;
         }
     }
 
+    private static void collectComposeViews(View root, java.util.List<View> out) {
+        if (root.getClass().getName().contains("ComposeView")) {
+            out.add(root);
+            return;
+        }
+        if (!(root instanceof ViewGroup)) return;
+        ViewGroup group = (ViewGroup) root;
+        for (int i = 0; i < group.getChildCount(); i++) collectComposeViews(group.getChildAt(i), out);
+    }
+
     private void scheduleNativeLyricCardHide(FrameLayout content, int attempt) {
-        if (attempt > 12) return;
+        if (attempt > 30) return;
         content.post(() -> {
             View container = findViewByClassNameContaining(content, "ScrollCardsContainer");
             if (container instanceof ViewGroup) {
                 hideTopLyricCard((ViewGroup) container, currentTrackHasNativeLyrics());
             }
-            content.postDelayed(() -> scheduleNativeLyricCardHide(content, attempt + 1), 700L);
+            content.postDelayed(() -> scheduleNativeLyricCardHide(content, attempt + 1), 250L);
         });
     }
 
