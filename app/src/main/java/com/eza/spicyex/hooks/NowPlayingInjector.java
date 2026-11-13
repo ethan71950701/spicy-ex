@@ -90,45 +90,53 @@ final class NowPlayingInjector {
         return controller != null && controller.consumeArtworkBack();
     }
 
-    private static boolean composeDumpScheduled;
-
-    /** Diagnostic, once: after layout settles, log every ComposeView with its position and ancestry. */
-    private void scheduleComposeDump(FrameLayout content) {
-        if (composeDumpScheduled) return;
-        composeDumpScheduled = true;
+    /**
+     * Spotify's native lyrics card is a Compose card: the top card in the now-playing widget list
+     * (ScrollCardsContainer, above SongDNA). Hide it, re-checking a few times since Spotify re-lays
+     * the list out after a track change.
+     */
+    private void scheduleNativeLyricCardHide(FrameLayout content, int attempt) {
+        if (attempt > 12) return;
         content.postDelayed(() -> {
-            StringBuilder line = new StringBuilder();
-            java.util.ArrayDeque<View> queue = new java.util.ArrayDeque<>();
-            queue.add(content);
-            int count = 0;
-            while (!queue.isEmpty() && count < 60) {
-                View v = queue.removeFirst();
-                if (v.getClass().getName().contains("ComposeView") && v.getVisibility() == View.VISIBLE) {
-                    int[] loc = new int[2];
-                    v.getLocationOnScreen(loc);
-                    StringBuilder chain = new StringBuilder();
-                    View up = v.getParent() instanceof View ? (View) v.getParent() : null;
-                    for (int d = 0; up != null && d < 3; d++) {
-                        chain.append(up.getClass().getSimpleName()).append('#').append(viewIdName(up)).append('<');
-                        up = up.getParent() instanceof View ? (View) up.getParent() : null;
-                    }
-                    String item = viewIdName(v) + " y=" + loc[1] + " h=" + v.getHeight() + " w=" + v.getWidth()
-                            + " up=" + chain + " | ";
-                    if (line.length() + item.length() > 700) {
-                        XpLog.log(NativeSpicyLyricsHook.TAG + " compose views: " + line);
-                        line.setLength(0);
-                    }
-                    line.append(item);
-                    count++;
-                }
-                if (v instanceof ViewGroup) {
-                    ViewGroup g = (ViewGroup) v;
-                    for (int i = 0; i < g.getChildCount(); i++) queue.addLast(g.getChildAt(i));
-                }
+            hideNativeLyricCard(content);
+            scheduleNativeLyricCardHide(content, attempt + 1);
+        }, 1000L);
+    }
+
+    private void hideNativeLyricCard(View root) {
+        View container = findViewByClassNameContaining(root, "ScrollCardsContainer");
+        if (!(container instanceof ViewGroup)) return;
+        ViewGroup group = (ViewGroup) container;
+        View top = null;
+        int topY = Integer.MAX_VALUE;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (!child.getClass().getName().contains("ComposeView")) continue;
+            if (child.getVisibility() != View.VISIBLE || child.getHeight() <= 0) continue;
+            int[] loc = new int[2];
+            child.getLocationOnScreen(loc);
+            if (loc[1] < topY) {
+                topY = loc[1];
+                top = child;
             }
-            if (line.length() > 0) XpLog.log(NativeSpicyLyricsHook.TAG + " compose views: " + line);
-            XpLog.log(NativeSpicyLyricsHook.TAG + " compose views done count=" + count);
-        }, 2500L);
+        }
+        if (top != null) {
+            top.setVisibility(View.GONE);
+        }
+    }
+
+    private static View findViewByClassNameContaining(View root, String needle) {
+        java.util.ArrayDeque<View> queue = new java.util.ArrayDeque<>();
+        queue.add(root);
+        while (!queue.isEmpty()) {
+            View v = queue.removeFirst();
+            if (v.getClass().getSimpleName().contains(needle)) return v;
+            if (v instanceof ViewGroup) {
+                ViewGroup g = (ViewGroup) v;
+                for (int i = 0; i < g.getChildCount(); i++) queue.addLast(g.getChildAt(i));
+            }
+        }
+        return null;
     }
 
     private static String viewIdName(View view) {
@@ -163,7 +171,7 @@ final class NowPlayingInjector {
             if (lyricsElement == null) return false;
             if (lyricsElement.getVisibility() != View.GONE) lyricsElement.setVisibility(View.GONE);
             hideNativeLyricFooter(content);
-            scheduleComposeDump(content);
+            scheduleNativeLyricCardHide(content, 0);
             return true;
         } catch (Throwable t) {
             XpLog.log(NativeSpicyLyricsHook.TAG + " hide native lyric element failed: " + t);
