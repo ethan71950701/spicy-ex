@@ -91,7 +91,8 @@ final class NowPlayingInjector {
         return controller != null && controller.consumeArtworkBack();
     }
 
-    private static final java.util.Map<View, Boolean> HIDDEN_CARDS =
+    /** Cards we collapsed, with the layout height they had before. */
+    private static final java.util.Map<View, Integer> HIDDEN_CARDS =
             java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
     private static volatile boolean cardGuardInstalled;
 
@@ -147,8 +148,12 @@ final class NowPlayingInjector {
     /**
      * Spotify's cards are ComposeViews stacked inside one wrapper, the native lyrics card topmost
      * (above SongDNA). Only that card is hidden - never the wrapper that holds every card - and only
-     * when Spotify has lyrics for the playing track. Without lyrics the card we hid is shown again.
-     * Returns true when a view's visibility changed.
+     * when Spotify has lyrics for the playing track. Without lyrics the card we hid is restored.
+     *
+     * The card is collapsed to a zero layout height rather than set to GONE: the wrapper positions
+     * its cards from their last measured heights, and a GONE view is never measured again, so the
+     * cards below stayed where they were and left a black gap. A zero height is re-measured.
+     * Returns true when a view's layout changed.
      */
     private static boolean hideTopLyricCard(ViewGroup container, boolean hasNativeLyrics) {
         java.util.List<View> cards = new java.util.ArrayList<>();
@@ -162,15 +167,11 @@ final class NowPlayingInjector {
         }
         if (!hasNativeLyrics) {
             if (hidden == null) return false;
-            HIDDEN_CARDS.remove(hidden);
-            hidden.setVisibility(View.VISIBLE);
+            Integer original = HIDDEN_CARDS.remove(hidden);
+            setCardHeight(hidden, original == null ? ViewGroup.LayoutParams.WRAP_CONTENT : original);
             return true;
         }
-        if (hidden != null) {
-            if (hidden.getVisibility() == View.GONE) return false;
-            hidden.setVisibility(View.GONE);
-            return true;
-        }
+        if (hidden != null) return setCardHeight(hidden, 0);
         View top = null;
         int topY = Integer.MAX_VALUE;
         for (View card : cards) {
@@ -183,43 +184,19 @@ final class NowPlayingInjector {
             }
         }
         if (top == null) return false;
-        HIDDEN_CARDS.put(top, Boolean.TRUE);
-        top.setVisibility(View.GONE);
-        logHiddenCardLayout(container, top);
+        ViewGroup.LayoutParams lp = top.getLayoutParams();
+        HIDDEN_CARDS.put(top, lp == null ? ViewGroup.LayoutParams.WRAP_CONTENT : lp.height);
+        setCardHeight(top, 0);
         return true;
     }
 
-    private static boolean hiddenLayoutLogged;
-
-    /** Diagnostic, once: which ancestor still reserves the hidden card's space. */
-    private static void logHiddenCardLayout(ViewGroup container, View card) {
-        if (hiddenLayoutLogged) return;
-        hiddenLayoutLogged = true;
-        container.postDelayed(() -> {
-            StringBuilder out = new StringBuilder();
-            View cursor = card;
-            for (int depth = 0; cursor != null && depth < 5; depth++) {
-                out.append(cursor.getClass().getSimpleName()).append('#').append(viewIdName(cursor))
-                        .append("{vis=").append(cursor.getVisibility())
-                        .append(" top=").append(cursor.getTop()).append(" h=").append(cursor.getHeight())
-                        .append(" lp=").append(cursor.getLayoutParams() == null ? "-"
-                                : cursor.getLayoutParams().height).append('}');
-                if (cursor == container) break;
-                View parent = cursor.getParent() instanceof View ? (View) cursor.getParent() : null;
-                if (parent instanceof ViewGroup) {
-                    ViewGroup g = (ViewGroup) parent;
-                    out.append(" siblings[");
-                    for (int i = 0; i < g.getChildCount() && i < 10; i++) {
-                        View sib = g.getChildAt(i);
-                        out.append(sib.getClass().getSimpleName()).append('@').append(sib.getTop())
-                                .append('+').append(sib.getHeight()).append('v').append(sib.getVisibility()).append(' ');
-                    }
-                    out.append("] < ");
-                }
-                cursor = parent;
-            }
-            XpLog.log(NativeSpicyLyricsHook.TAG + " hidden card layout: " + out);
-        }, 1500L);
+    /** Sets the card's layout height; returns true when it actually changed. */
+    private static boolean setCardHeight(View card, int height) {
+        ViewGroup.LayoutParams lp = card.getLayoutParams();
+        if (lp == null || lp.height == height) return false;
+        lp.height = height;
+        card.setLayoutParams(lp);
+        return true;
     }
 
     private static void collectComposeViews(View root, java.util.List<View> out) {
