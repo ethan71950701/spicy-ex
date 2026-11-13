@@ -184,33 +184,82 @@ final class NowPlayingInjector {
         }
     }
 
-    /**
-     * Spotify's own lyrics footer (translate / share buttons) sits under the now-playing controls
-     * as a sibling of the live card. Spicy's card has its own header actions, so the native footer
-     * is hidden whenever the live card is present.
-     */
-    private void hideNativeLyricFooter(View root) {
-        View footer = findViewByResourceEntryName(root, "revised_template_overlay_footer");
-        if (footer != null && footer.getVisibility() != View.GONE) footer.setVisibility(View.GONE);
-    }
 
-    /**
-     * Option A: the now-playing page keeps no lyric card. Spotify's lyric element is hidden and the
-     * native footer is hidden with it; lyrics open from the footer button instead.
-     */
     private boolean inject(Activity activity) {
         try {
             if (activity == null || !hook.isNativeSpicyEnabled(activity)) return true;
             FrameLayout content = activity.findViewById(android.R.id.content);
             if (content == null) return false;
+            if (content.findViewWithTag(TAG_LIVE_CARD) != null) {
+                NowPlayingLyricController controller;
+                synchronized (controllers) {
+                    controller = controllers.get(activity);
+                }
+                if (controller != null) controller.start();
+                return true;
+            }
             View lyricsElement = findViewByResourceEntryName(content, "lyrics_element");
-            if (lyricsElement == null) return false;
-            if (lyricsElement.getVisibility() != View.GONE) lyricsElement.setVisibility(View.GONE);
-            hideNativeLyricFooter(content);
+            if (lyricsElement == null || !(lyricsElement.getParent() instanceof ViewGroup)) return false;
+            ViewGroup parent = (ViewGroup) lyricsElement.getParent();
+            if (parent.findViewWithTag(TAG_LIVE_CARD) != null) return true;
+
+            int index = parent.indexOfChild(lyricsElement);
+            ViewGroup.LayoutParams layoutParams = lyricsElement.getLayoutParams();
+            LiveLyricCardView card = new LiveLyricCardView(activity);
+            card.setTag(TAG_LIVE_CARD);
+            parent.removeView(lyricsElement);
+            card.setLayoutParams(layoutParams);
+            parent.addView(card, index);
+
+            ArtworkLyricsOverlayView artworkOverlay = new ArtworkLyricsOverlayView(activity);
+            artworkOverlay.setTag(TAG_ARTWORK_OVERLAY);
+            content.addView(artworkOverlay, new FrameLayout.LayoutParams(1, 1));
+
+            NowPlayingLyricController controller = new NowPlayingLyricController(
+                    hook, activity, card, artworkOverlay, new NowPlayingLyricController.ArtworkTargetHost() {
+                private NowPlayingLyricController.TargetInvalidationListener invalidationListener;
+
+                @Override
+                public NowPlayingArtworkTargetResolver.Resolution resolve(boolean applyBounds) {
+                    return resolveArtworkTarget(
+                            activity, artworkOverlay, applyBounds, invalidationListener);
+                }
+
+                @Override
+                public void invalidate() {
+                    invalidateArtworkTarget(activity);
+                }
+
+                @Override
+                public void setInvalidationListener(
+                        NowPlayingLyricController.TargetInvalidationListener listener
+                ) {
+                    invalidationListener = listener;
+                }
+            });
+            synchronized (controllers) {
+                controllers.put(activity, controller);
+            }
+            controller.start();
+
+            View decor = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
+            if (decor != null) {
+                AlignmentRetry alignment = new AlignmentRetry(activity, decor, card);
+                synchronized (alignments) {
+                    alignments.put(activity, alignment);
+                }
+                alignment.postNext();
+            }
+            XpLog.log(NativeSpicyLyricsHook.TAG + " live lyric card injected in " + activity.getClass().getName());
+            // Spotify's own lyrics card further down the page is hidden; this card above the title stays.
             scheduleNativeLyricCardHide(content, 0);
+            Diagnostics.event("renderer", "mount_state",
+                    Diagnostics.context("surface", "now_playing", "mounted", "true"));
             return true;
         } catch (Throwable t) {
-            XpLog.log(NativeSpicyLyricsHook.TAG + " hide native lyric element failed: " + t);
+            XpLog.log(NativeSpicyLyricsHook.TAG + " live card inject failed: " + t);
+            Diagnostics.event("renderer", "mount_state", t,
+                    Diagnostics.context("surface", "now_playing", "mounted", "false"));
             return false;
         }
     }
