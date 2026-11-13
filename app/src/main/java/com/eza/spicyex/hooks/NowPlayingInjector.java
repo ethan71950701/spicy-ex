@@ -90,36 +90,14 @@ final class NowPlayingInjector {
         return controller != null && controller.consumeArtworkBack();
     }
 
-    /** Diagnostic: the card's parent chain and every sibling's class, resource name and position. */
-    private static void logCardSiblings(Activity activity, ViewGroup parent, View card) {
-        try {
-            StringBuilder chain = new StringBuilder("card parents:");
-            View cursor = parent;
-            for (int depth = 0; cursor != null && depth < 4; depth++) {
-                chain.append(' ').append(cursor.getClass().getName()).append('#').append(viewIdName(cursor));
-                cursor = cursor.getParent() instanceof View ? (View) cursor.getParent() : null;
-            }
-            XpLog.log(NativeSpicyLyricsHook.TAG + " " + chain);
-            StringBuilder sib = new StringBuilder("card siblings (top+height):");
-            for (int i = 0; i < parent.getChildCount(); i++) {
-                View v = parent.getChildAt(i);
-                sib.append(' ').append(v.getClass().getSimpleName()).append('#').append(viewIdName(v))
-                        .append(v == card ? "[CARD]" : "")
-                        .append('@').append(v.getTop()).append('+').append(v.getHeight());
-            }
-            XpLog.log(NativeSpicyLyricsHook.TAG + " " + sib);
-        } catch (Throwable t) {
-            XpLog.log(NativeSpicyLyricsHook.TAG + " card sibling log failed: " + t);
-        }
-    }
-
-    private static String viewIdName(View view) {
-        if (view.getId() == View.NO_ID) return "-";
-        try {
-            return view.getResources().getResourceEntryName(view.getId());
-        } catch (Throwable t) {
-            return "?" + view.getId();
-        }
+    /**
+     * Spotify's own lyrics footer (translate / share buttons) sits under the now-playing controls
+     * as a sibling of the live card. Spicy's card has its own header actions, so the native footer
+     * is hidden whenever the live card is present.
+     */
+    private void hideNativeLyricFooter(View root) {
+        View footer = findViewByResourceEntryName(root, "revised_template_overlay_footer");
+        if (footer != null && footer.getVisibility() != View.GONE) footer.setVisibility(View.GONE);
     }
 
     private boolean inject(Activity activity) {
@@ -128,6 +106,7 @@ final class NowPlayingInjector {
             FrameLayout content = activity.findViewById(android.R.id.content);
             if (content == null) return false;
             if (content.findViewWithTag(TAG_LIVE_CARD) != null) {
+                hideNativeLyricFooter(content);
                 NowPlayingLyricController controller;
                 synchronized (controllers) {
                     controller = controllers.get(activity);
@@ -147,7 +126,7 @@ final class NowPlayingInjector {
             parent.removeView(lyricsElement);
             card.setLayoutParams(layoutParams);
             parent.addView(card, index);
-            logCardSiblings(activity, parent, card);
+            hideNativeLyricFooter(content);
 
             ArtworkLyricsOverlayView artworkOverlay = new ArtworkLyricsOverlayView(activity);
             artworkOverlay.setTag(TAG_ARTWORK_OVERLAY);
